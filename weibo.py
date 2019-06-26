@@ -227,14 +227,19 @@ class Weibo(object):
             print("Error: ", e)
             traceback.print_exc()
 
+    def get_page_count(self):
+        """获取微博页数"""
+        weibo_count = self.user['statuses_count']
+        page_count = int(math.ceil(weibo_count / 10.0))
+        return page_count
+
     def get_pages(self):
         """获取全部微博"""
+        self.get_user_info()
+        page_count = self.get_page_count()
+        self.print_user_info()
         page1 = 0
         random_pages = random.randint(1, 5)
-        user_info = self.get_user_info()
-        weibo_count = user_info['statuses_count']
-        page_count = math.ceil(weibo_count / 10)
-        self.print_user_info()
         for page in tqdm(range(1, page_count + 1), desc=u"进度"):
             print(u'第%d页' % page)
             self.get_one_page(page)
