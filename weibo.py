@@ -19,14 +19,13 @@ class Weibo(object):
         """Weibo类初始化"""
         if not isinstance(user_id, int):
             sys.exit(u'user_id值应为一串数字形式,请重新输入')
-        if not isinstance(filter, int):
-            sys.exit(u'filter值应为数字,请重新输入')
         if filter != 0 and filter != 1:
-            sys.exit(u'filter值应为0或1,请重新输入')
+            sys.exit(u'filter值应为数字0或1,请重新输入')
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
         self.filter = filter
         self.weibo = []  # 存储爬取到的所有微博信息
         self.user = {}
+        self.got_count = 0  # 爬取到的微博数
 
     def get_json(self, params):
         """获取网页中json数据"""
@@ -232,6 +231,7 @@ class Weibo(object):
                         wb = self.get_one_weibo(w)
                         if (not self.filter) or ('retweet' not in wb.keys()):
                             self.weibo.append(wb)
+                            self.got_count = self.got_count + 1
                             self.print_weibo(wb)
         except Exception as e:
             print("Error: ", e)
@@ -261,11 +261,12 @@ class Weibo(object):
                 sleep(random.randint(6, 10))
                 page1 = page
                 random_pages = random.randint(1, 5)
+        print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
 
 def main():
     try:
-        user_id = 1669879400  # 可以改成任意合法的用户id（爬虫的微博id除外）
+        user_id = 1669879400  # 可以改成任意合法的用户id
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         wb = Weibo(user_id, filter)
         wb.get_pages()
