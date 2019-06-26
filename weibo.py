@@ -15,8 +15,16 @@ from tqdm import tqdm
 
 
 class Weibo(object):
-    def __init__(self, user_id):
+    def __init__(self, user_id, filter=0):
+        """Weibo类初始化"""
+        if not isinstance(user_id, int):
+            sys.exit(u'user_id值应为一串数字形式,请重新输入')
+        if not isinstance(filter, int):
+            sys.exit(u'filter值应为数字,请重新输入')
+        if filter != 0 and filter != 1:
+            sys.exit(u'filter值应为0或1,请重新输入')
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
+        self.filter = filter
         self.weibo = []  # 存储爬取到的所有微博信息
         self.user = {}
 
@@ -147,7 +155,7 @@ class Weibo(object):
 
     def print_user_info(self):
         """打印用户信息"""
-        print('*' * 100)
+        print('+' * 100)
         print(u'用户信息')
         print(u'用户id：%d' % self.user['id'])
         print(u'用户昵称：%s' % self.user['screen_name'])
@@ -159,7 +167,7 @@ class Weibo(object):
         if self.user.get('verified_reason'):
             print(self.user['verified_reason'])
         print(self.user['description'])
-        print('*' * 100)
+        print('+' * 100)
 
     def print_one_weibo(self, weibo):
         """打印一条微博"""
@@ -211,7 +219,6 @@ class Weibo(object):
                 weibo = self.get_long_weibo(weibo_id)
             else:
                 weibo = self.parse_weibo(weibo_info)
-        self.print_weibo(weibo)
         return weibo
 
     def get_one_page(self, page):
@@ -222,7 +229,10 @@ class Weibo(object):
                 weibos = js['data']['cards']
                 for w in weibos:
                     if w['card_type'] == 9:
-                        self.weibo.append(self.get_one_weibo(w))
+                        wb = self.get_one_weibo(w)
+                        if (not self.filter) or ('retweet' not in wb.keys()):
+                            self.weibo.append(wb)
+                            self.print_weibo(wb)
         except Exception as e:
             print("Error: ", e)
             traceback.print_exc()
@@ -253,6 +263,16 @@ class Weibo(object):
                 random_pages = random.randint(1, 5)
 
 
+def main():
+    try:
+        user_id = 1669879400  # 可以改成任意合法的用户id（爬虫的微博id除外）
+        filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
+        wb = Weibo(user_id, filter)
+        wb.get_pages()
+    except Exception as e:
+        print('Error: ', e)
+        traceback.print_exc()
+
+
 if __name__ == '__main__':
-    wb = Weibo(1669879400)
-    wb.get_pages()
+    main()
