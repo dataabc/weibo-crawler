@@ -18,7 +18,7 @@ class Weibo(object):
     def __init__(self, user_id):
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
         self.weibo = []  # 存储爬取到的所有微博信息
-        self.user_info = {}
+        self.user = {}
 
     def get_json(self, params):
         """获取网页中json数据"""
@@ -37,8 +37,11 @@ class Weibo(object):
         params = {'containerid': '100505' + str(self.user_id)}
         js = self.get_json(params)
         if js['ok']:
-            user_info = js['data']['userInfo']
-            self.user_info = user_info
+            info = js['data']['userInfo']
+            if info.get('toolbar_menus'):
+                del info['toolbar_menus']
+            user_info = self.standardize_info(info)
+            self.user = user_info
             return user_info
 
     def get_long_weibo(self, id):
@@ -111,10 +114,11 @@ class Weibo(object):
             string = int(string[:-1] + '0000')
         return int(string)
 
-    def standardize_weibo(self, weibo):
-        """标准化微博，去除乱码"""
+    def standardize_info(self, weibo):
+        """标准化信息，去除乱码"""
         for k, v in weibo.items():
-            if 'int' not in str(type(v)) and 'long' not in str(type(v)):
+            if 'int' not in str(type(v)) and 'long' not in str(
+                    type(v)) and 'bool' not in str(type(v)):
                 weibo[k] = v.replace(u"\u200b", "").encode(
                     sys.stdout.encoding, "ignore").decode(sys.stdout.encoding)
         return weibo
@@ -139,7 +143,23 @@ class Weibo(object):
         weibo['location'] = self.get_location(selector)
         weibo['at_users'] = self.get_at_users(selector)
         weibo['topics'] = self.get_topics(selector)
-        return self.standardize_weibo(weibo)
+        return self.standardize_info(weibo)
+
+    def print_user_info(self):
+        """打印用户信息"""
+        print('*' * 100)
+        print(u'用户信息')
+        print(u'用户id：%d' % self.user['id'])
+        print(u'用户昵称：%s' % self.user['screen_name'])
+        gender = u'女' if self.user['gender'] == 'f' else u'男'
+        print(u'性别：%s' % gender)
+        print(u'微博数：%d' % self.user['statuses_count'])
+        print(u'粉丝数：%d' % self.user['followers_count'])
+        print(u'关注数：%d' % self.user['follow_count'])
+        if self.user.get('verified_reason'):
+            print(self.user['verified_reason'])
+        print(self.user['description'])
+        print('*' * 100)
 
     def print_one_weibo(self, weibo):
         """打印一条微博"""
@@ -214,6 +234,7 @@ class Weibo(object):
         user_info = self.get_user_info()
         weibo_count = user_info['statuses_count']
         page_count = math.ceil(weibo_count / 10)
+        self.print_user_info()
         for page in tqdm(range(1, page_count + 1), desc=u"进度"):
             print(u'第%d页' % page)
             self.get_one_page(page)
