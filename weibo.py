@@ -18,25 +18,28 @@ class Weibo(object):
     def __init__(self, user_id):
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
         self.weibo = []  # 存储爬取到的所有微博信息
+        self.user_info = {}
 
-    def get_json(self, page):
-        """获取网页中的json数据"""
+    def get_json(self, params):
+        """获取网页中json数据"""
         url = 'https://m.weibo.cn/api/container/getIndex?'
-        params = {'containerid': '107603' + str(self.user_id), 'page': page}
         r = requests.get(url, params=params)
-        r.encoding = 'gbk'
-        js = r.json()
+        return r.json()
+
+    def get_weibo_json(self, page):
+        """获取网页中微博json数据"""
+        params = {'containerid': '107603' + str(self.user_id), 'page': page}
+        js = self.get_json(params)
         return js
 
-    def get_page_num(self):
-        """获取微博页数"""
-        js = self.get_json(1)
-        if js.get('ok'):
-            info = js.get('data').get('cardlistInfo')
-            weibo_num = info['total']
-            page_num = math.ceil(weibo_num / 10)
-            page_num = int(page_num)
-            return page_num
+    def get_user_info(self):
+        """获取用户信息"""
+        params = {'containerid': '100505' + str(self.user_id)}
+        js = self.get_json(params)
+        if js['ok']:
+            user_info = js['data']['userInfo']
+            self.user_info = user_info
+            return user_info
 
     def get_long_weibo(self, id):
         """获取长微博"""
@@ -194,7 +197,7 @@ class Weibo(object):
     def get_one_page(self, page):
         """获取一页的全部微博"""
         try:
-            js = self.get_json(page)
+            js = self.get_weibo_json(page)
             if js['ok']:
                 weibos = js['data']['cards']
                 for w in weibos:
@@ -208,15 +211,17 @@ class Weibo(object):
         """获取全部微博"""
         page1 = 0
         random_pages = random.randint(1, 5)
-        page_num = self.get_page_num()
-        for page in tqdm(range(1, page_num + 1), desc=u"进度"):
+        user_info = self.get_user_info()
+        weibo_count = user_info['statuses_count']
+        page_count = math.ceil(weibo_count / 10)
+        for page in tqdm(range(1, page_count + 1), desc=u"进度"):
             print(u'第%d页' % page)
             self.get_one_page(page)
 
             # 通过加入随机等待避免被限制。爬虫速度过快容易被系统限制(一段时间后限
             # 制会自动解除)，加入随机等待模拟人的操作，可降低被系统限制的风险。默
             # 认是每爬取1到5页随机等待6到10秒，如果仍然被限，可适当增加sleep时间
-            if page - page1 == random_pages and page < page_num:
+            if page - page1 == random_pages and page < page_count:
                 sleep(random.randint(6, 10))
                 page1 = page
                 random_pages = random.randint(1, 5)
