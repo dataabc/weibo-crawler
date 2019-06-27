@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import codecs
+import csv
 import json
 import math
+import os
 import random
 import sys
 import traceback
@@ -138,18 +141,18 @@ class Weibo(object):
         text_body = weibo_info['text']
         selector = etree.HTML(text_body)
         weibo['text'] = etree.HTML(text_body).xpath('string(.)')
-        weibo['reposts_count'] = self.string_to_int(
-            weibo_info['reposts_count'])
-        weibo['comments_count'] = self.string_to_int(
-            weibo_info['comments_count'])
-        weibo['attitudes_count'] = self.string_to_int(
-            weibo_info['attitudes_count'])
-        weibo['source'] = weibo_info['source']
-        weibo['created_at'] = weibo_info['created_at']
         weibo['pics'] = self.get_pics(weibo_info)
         weibo['location'] = self.get_location(selector)
-        weibo['at_users'] = self.get_at_users(selector)
+        weibo['created_at'] = weibo_info['created_at']
+        weibo['source'] = weibo_info['source']
+        weibo['attitudes_count'] = self.string_to_int(
+            weibo_info['attitudes_count'])
+        weibo['comments_count'] = self.string_to_int(
+            weibo_info['comments_count'])
+        weibo['reposts_count'] = self.string_to_int(
+            weibo_info['reposts_count'])
         weibo['topics'] = self.get_topics(selector)
+        weibo['at_users'] = self.get_at_users(selector)
         return self.standardize_info(weibo)
 
     def print_user_info(self):
@@ -170,8 +173,6 @@ class Weibo(object):
 
     def print_one_weibo(self, weibo):
         """打印一条微博"""
-        print(u'用户id：%d' % weibo['user_id'])
-        print(u'用户昵称：%s' % weibo['screen_name'])
         print(u'微博id：%d' % weibo['id'])
         print(u'微博正文：%s' % weibo['text'])
         print(u'原始图片url：%s' % weibo['pics'])
@@ -243,16 +244,102 @@ class Weibo(object):
         page_count = int(math.ceil(weibo_count / 10.0))
         return page_count
 
+    def get_select_info(self, select_features, wrote_count):
+        """获取所选特征对应的信息"""
+        select_info = []
+        for w in self.weibo[wrote_count:]:
+            wb = OrderedDict()
+            for k, v in w.items():
+                if k in select_features:
+                    if 'unicode' in str(type(v)):
+                        v = v.encode('utf-8')
+                    wb[k] = v
+            select_info.append(wb)
+        return select_info
+
+    def get_filepath(self, type):
+        """获取结果文件路径"""
+        try:
+            file_dir = os.path.split(
+                os.path.realpath(__file__)
+            )[0] + os.sep + 'weibo' + os.sep + self.user['screen_name']
+            if type == 'img':
+                file_dir = file_dir + os.sep + 'img'
+            if not os.path.isdir(file_dir):
+                os.makedirs(file_dir)
+            if type == 'img':
+                return file_dir
+            file_path = file_dir + os.sep + '%d' % self.user_id + '.' + type
+            return file_path
+        except Exception as e:
+            print('Error: ', e)
+            traceback.print_exc()
+
+    def get_result_headers(self, select_features):
+        """获取特征对应的中文名"""
+        features_mapping = {
+            'id': '微博id',
+            'text': '正文',
+            'pics': '原始图片url',
+            'location': '位置',
+            'created_at': '日期',
+            'source': '工具',
+            'attitudes_count': '点赞数',
+            'comments_count': '评论数',
+            'reposts_count': '转发数',
+            'topics': '话题',
+            'at_users': '@用户'
+        }
+        result_headers = [features_mapping[f] for f in select_features]
+        return result_headers
+
+    def write_csv(self, wrote_count):
+        """将爬到的信息写入csv文件"""
+        select_features = [
+            'id', 'text', 'pics', 'location', 'created_at', 'source',
+            'attitudes_count', 'comments_count', 'reposts_count', 'topics',
+            'at_users'
+        ]
+        select_info = self.get_select_info(select_features, wrote_count)
+        result_headers = self.get_result_headers(select_features)
+        result_data = [w.values() for w in select_info]
+        if sys.version < '3':  # python2.x
+            with open(self.get_filepath('csv'), 'ab') as f:
+                f.write(codecs.BOM_UTF8)
+                writer = csv.writer(f)
+                if wrote_count == 0:
+                    writer.writerows([result_headers])
+                writer.writerows(result_data)
+        else:  # python3.x
+            with open(self.get_filepath('csv'),
+                      'a',
+                      encoding='utf-8-sig',
+                      newline='') as f:
+                writer = csv.writer(f)
+                if wrote_count == 0:
+                    writer.writerows([result_headers])
+                writer.writerows(result_data)
+
+    def write_file(self, wrote_count):
+        """将爬到的信息写入文件"""
+        if self.got_count > wrote_count:
+            self.write_csv(wrote_count)
+
     def get_pages(self):
         """获取全部微博"""
         self.get_user_info()
         page_count = self.get_page_count()
+        wrote_count = 0
         self.print_user_info()
         page1 = 0
         random_pages = random.randint(1, 5)
         for page in tqdm(range(1, page_count + 1), desc=u"进度"):
             print(u'第%d页' % page)
             self.get_one_page(page)
+
+            if page % 20 == 0:  # 每爬20页写入一次文件
+                self.write_file(wrote_count)
+                wrote_count = self.got_count
 
             # 通过加入随机等待避免被限制。爬虫速度过快容易被系统限制(一段时间后限
             # 制会自动解除)，加入随机等待模拟人的操作，可降低被系统限制的风险。默
@@ -261,6 +348,8 @@ class Weibo(object):
                 sleep(random.randint(6, 10))
                 page1 = page
                 random_pages = random.randint(1, 5)
+
+        self.write_file(wrote_count)  # 将剩余不足20页的微博写入文件
         print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
 
