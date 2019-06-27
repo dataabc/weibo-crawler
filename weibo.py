@@ -254,6 +254,11 @@ class Weibo(object):
                     if 'unicode' in str(type(v)):
                         v = v.encode('utf-8')
                     wb[k] = v
+            if not self.filter:
+                if w.get('retweet'):
+                    wb['is_original'] = False
+                else:
+                    wb['is_original'] = True
             select_info.append(wb)
         return select_info
 
@@ -288,7 +293,8 @@ class Weibo(object):
             'comments_count': '评论数',
             'reposts_count': '转发数',
             'topics': '话题',
-            'at_users': '@用户'
+            'at_users': '@用户',
+            'is_original': '是否原创'
         }
         result_headers = [features_mapping[f] for f in select_features]
         return result_headers
@@ -300,6 +306,8 @@ class Weibo(object):
             'attitudes_count', 'comments_count', 'reposts_count', 'topics',
             'at_users'
         ]
+        if not self.filter:
+            select_features.append('is_original')
         select_info = self.get_select_info(select_features, wrote_count)
         result_headers = self.get_result_headers(select_features)
         result_data = [w.values() for w in select_info]
@@ -356,7 +364,7 @@ class Weibo(object):
 def main():
     try:
         user_id = 1669879400  # 可以改成任意合法的用户id
-        filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
+        filter = 0  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         wb = Weibo(user_id, filter)
         wb.get_pages()
     except Exception as e:
