@@ -244,23 +244,27 @@ class Weibo(object):
         page_count = int(math.ceil(weibo_count / 10.0))
         return page_count
 
-    def get_select_info(self, select_features, wrote_count):
-        """获取所选特征对应的信息"""
-        select_info = []
+    def get_write_info(self, wrote_count):
+        """获取要写入的微博信息"""
+        write_info = []
         for w in self.weibo[wrote_count:]:
             wb = OrderedDict()
             for k, v in w.items():
-                if k in select_features:
+                if k not in ['user_id', 'screen_name', 'retweet']:
                     if 'unicode' in str(type(v)):
                         v = v.encode('utf-8')
                     wb[k] = v
             if not self.filter:
                 if w.get('retweet'):
                     wb['is_original'] = False
+                    for k2, v2 in w['retweet'].items():
+                        if 'unicode' in str(type(v2)):
+                            v2 = v2.encode('utf-8')
+                        wb['retweet_' + k2] = v2
                 else:
                     wb['is_original'] = True
-            select_info.append(wb)
-        return select_info
+            write_info.append(wb)
+        return write_info
 
     def get_filepath(self, type):
         """获取结果文件路径"""
@@ -280,37 +284,23 @@ class Weibo(object):
             print('Error: ', e)
             traceback.print_exc()
 
-    def get_result_headers(self, select_features):
-        """获取特征对应的中文名"""
-        features_mapping = {
-            'id': '微博id',
-            'text': '正文',
-            'pics': '原始图片url',
-            'location': '位置',
-            'created_at': '日期',
-            'source': '工具',
-            'attitudes_count': '点赞数',
-            'comments_count': '评论数',
-            'reposts_count': '转发数',
-            'topics': '话题',
-            'at_users': '@用户',
-            'is_original': '是否原创'
-        }
-        result_headers = [features_mapping[f] for f in select_features]
+    def get_result_headers(self):
+        """获取要写入结果文件的表头"""
+        result_headers = [
+            'id', '正文', '原始图片url', '位置', '日期', '工具', '点赞数', '评论数', '转发数', '话题',
+            '@用户'
+        ]
+        if not self.filter:
+            result_headers2 = ['是否原创', '原始用户id', '原始用户昵称']
+            result_headers3 = ['原始微博' + r for r in result_headers]
+            result_headers = result_headers + result_headers2 + result_headers3
         return result_headers
 
     def write_csv(self, wrote_count):
         """将爬到的信息写入csv文件"""
-        select_features = [
-            'id', 'text', 'pics', 'location', 'created_at', 'source',
-            'attitudes_count', 'comments_count', 'reposts_count', 'topics',
-            'at_users'
-        ]
-        if not self.filter:
-            select_features.append('is_original')
-        select_info = self.get_select_info(select_features, wrote_count)
-        result_headers = self.get_result_headers(select_features)
-        result_data = [w.values() for w in select_info]
+        write_info = self.get_write_info(wrote_count)
+        result_headers = self.get_result_headers()
+        result_data = [w.values() for w in write_info]
         if sys.version < '3':  # python2.x
             with open(self.get_filepath('csv'), 'ab') as f:
                 f.write(codecs.BOM_UTF8)
