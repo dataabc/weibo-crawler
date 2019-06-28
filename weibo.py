@@ -213,12 +213,14 @@ class Weibo(object):
                 retweet = self.get_long_weibo(retweet_id)
             else:
                 retweet = self.parse_weibo(retweeted_status)
+            retweet['created_at'] = retweeted_status['created_at']
             weibo['retweet'] = retweet
         else:  # 原创
             if is_long:
                 weibo = self.get_long_weibo(weibo_id)
             else:
                 weibo = self.parse_weibo(weibo_info)
+        weibo['created_at'] = weibo_info['created_at']
         return weibo
 
     def get_one_page(self, page):
