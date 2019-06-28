@@ -10,6 +10,7 @@ import random
 import sys
 import traceback
 from collections import OrderedDict
+from datetime import datetime, timedelta
 from time import sleep
 
 import requests
@@ -124,6 +125,26 @@ class Weibo(object):
             string = int(string[:-1] + '0000')
         return int(string)
 
+    def standardize_date(self, created_at):
+        """标准化微博发布时间"""
+        if u"刚刚" in created_at:
+            created_at = datetime.now().strftime("%Y-%m-%d")
+        elif u"分钟" in created_at:
+            minute = created_at[:created_at.find(u"分钟")]
+            minute = timedelta(minutes=int(minute))
+            created_at = (datetime.now() - minute).strftime("%Y-%m-%d")
+        elif u"小时" in created_at:
+            hour = created_at[:created_at.find(u"小时")]
+            hour = timedelta(hours=int(hour))
+            created_at = (datetime.now() - hour).strftime("%Y-%m-%d")
+        elif u"昨天" in created_at:
+            day = timedelta(days=1)
+            created_at = (datetime.now() - day).strftime("%Y-%m-%d")
+        elif created_at.count('-') == 1:
+            year = datetime.now().strftime("%Y")
+            created_at = year + "-" + created_at
+        return created_at
+
     def standardize_info(self, weibo):
         """标准化信息，去除乱码"""
         for k, v in weibo.items():
@@ -213,14 +234,15 @@ class Weibo(object):
                 retweet = self.get_long_weibo(retweet_id)
             else:
                 retweet = self.parse_weibo(retweeted_status)
-            retweet['created_at'] = retweeted_status['created_at']
+            retweet['created_at'] = self.standardize_date(
+                retweeted_status['created_at'])
             weibo['retweet'] = retweet
         else:  # 原创
             if is_long:
                 weibo = self.get_long_weibo(weibo_id)
             else:
                 weibo = self.parse_weibo(weibo_info)
-        weibo['created_at'] = weibo_info['created_at']
+        weibo['created_at'] = self.standardize_date(weibo_info['created_at'])
         return weibo
 
     def get_one_page(self, page):
