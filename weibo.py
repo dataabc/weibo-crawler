@@ -19,16 +19,19 @@ from tqdm import tqdm
 
 
 class Weibo(object):
-    def __init__(self, user_id, filter=0):
+    def __init__(self, user_id, filter=0, pic_download=0):
         """Weibo类初始化"""
         if not isinstance(user_id, int):
             sys.exit(u'user_id值应为一串数字形式,请重新输入')
         if filter != 0 and filter != 1:
             sys.exit(u'filter值应为数字0或1,请重新输入')
+        if pic_download != 0 and pic_download != 1:
+            sys.exit(u'pic_download值应为数字0或1,请重新输入')
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
-        self.filter = filter
+        self.filter = filter  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
+        self.pic_download = pic_download  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
         self.weibo = []  # 存储爬取到的所有微博信息
-        self.user = {}
+        self.user = {}  # 存储目标微博用户信息
         self.got_count = 0  # 爬取到的微博数
 
     def get_json(self, params):
@@ -77,6 +80,49 @@ class Weibo(object):
         else:
             pics = ''
         return pics
+
+    def download_pic(self, url, pic_path):
+        """下载单张图片"""
+        try:
+            p = requests.get(url)
+            with open(pic_path, 'wb') as f:
+                f.write(p.content)
+        except Exception as e:
+            error_file = self.get_filepath(
+                'img') + os.sep + 'not_downloaded_pictures.txt'
+            with open(error_file, 'ab') as f:
+                url = url + '\n'
+                f.write(url.encode(sys.stdout.encoding))
+            print('Error: ', e)
+            traceback.print_exc()
+
+    def download_pictures(self):
+        """下载微博图片"""
+        try:
+            print(u'即将进行图片下载')
+            img_dir = self.get_filepath('img')
+            for w in tqdm(self.weibo, desc=u'图片下载进度'):
+                if w['pics']:
+                    pic_prefix = w['created_at'].replace('-', '') + '_' + str(
+                        w['id'])
+                    if ',' in w['pics']:
+                        pic_list = w['pics'].split(',')
+                        for i, url in enumerate(pic_list):
+                            pic_suffix = url[url.rfind('.'):]
+                            pic_name = pic_prefix + '_' + str(i +
+                                                              1) + pic_suffix
+                            pic_path = img_dir + os.sep + pic_name
+                            self.download_pic(url, pic_path)
+                    else:
+                        pic_suffix = w['pics'][w['pics'].rfind('.'):]
+                        pic_name = pic_prefix + pic_suffix
+                        pic_path = img_dir + os.sep + pic_name
+                        self.download_pic(w['pics'], pic_path)
+            print(u'图片下载完毕,保存路径:')
+            print(img_dir)
+        except Exception as e:
+            print('Error: ', e)
+            traceback.print_exc()
 
     def get_location(self, selector):
         """获取微博发布位置"""
@@ -374,13 +420,26 @@ class Weibo(object):
         self.write_file(wrote_count)  # 将剩余不足20页的微博写入文件
         print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
+    def start(self):
+        """运行爬虫"""
+        try:
+            self.get_pages()
+            print(u'信息抓取完毕')
+            print('*' * 100)
+            if self.pic_download == 1:
+                self.download_pictures()
+        except Exception as e:
+            print('Error: ', e)
+            traceback.print_exc()
+
 
 def main():
     try:
         user_id = 1669879400  # 可以改成任意合法的用户id
         filter = 0  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
-        wb = Weibo(user_id, filter)
-        wb.get_pages()
+        pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
+        wb = Weibo(user_id, filter, pic_download)
+        wb.start()
     except Exception as e:
         print('Error: ', e)
         traceback.print_exc()
