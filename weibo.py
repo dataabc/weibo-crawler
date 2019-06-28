@@ -387,6 +387,8 @@ class Weibo(object):
                 if wrote_count == 0:
                     writer.writerows([result_headers])
                 writer.writerows(result_data)
+        print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
+        print(self.get_filepath('csv'))
 
     def write_file(self, wrote_count):
         """将爬到的信息写入文件"""
@@ -436,7 +438,7 @@ class Weibo(object):
 def main():
     try:
         user_id = 1669879400  # 可以改成任意合法的用户id
-        filter = 0  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
+        filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
         wb = Weibo(user_id, filter, pic_download)
         wb.start()
