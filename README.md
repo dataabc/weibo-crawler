@@ -59,7 +59,7 @@ $ git clone https://github.com/dataabc/weibo-crawler.git
 ```
 运行上述命令，将本项目下载到当前目录，如果下载成功当前目录会出现一个名为"weibo-crawler"的文件夹；
 ## 2.设置user_id
-打开weibospider文件夹下的"**weibo.py**"文件，将**user_id**替换成想要爬取的微博的user_id，后面会详细讲解如何获取user_id;
+打开weibo-crawler文件夹下的"**weibo.py**"文件，将**user_id**替换成想要爬取的微博的user_id，后面会详细讲解如何获取user_id;
 ## 3.安装依赖
 ```
 pip install -r requirements.txt
