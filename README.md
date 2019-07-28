@@ -9,7 +9,7 @@ csv文件结果如下所示：
 当为转发微博时，文件中还包含转发微博的信息，如**原始用户id**、**原始用户昵称**、**原始微博id**、**原始微博正文**、**原始微博原始图片url**、**原始微博位置**、**原始微博日期**、**原始微博工具**、**原始微博点赞数**、**原始微博评论数**、**原始微博转发数**、**原始微博话题**、**原始微博@用户**等信息。原创微博因为没有这些转发信息，所以对应位置为空。若爬取的是"全部**原创**微博"，则csv文件中不会包含"是否原创"及其之后的转发属性列；<br>
 下载的图片如下所示：
 ![](https://picture.cognize.me/cognize/github/weibo-crawler/picture.png)*img文件夹*<br>
-本次下载了769张图片，大小一共1.16GB，包括她原创微博中的图片和转发微博转发理由中的图片。图片名为yyyymmdd+微博id的形式，若某条微博存在多张图片，则图片名中还会包括它在微博图片中的序号。若某图片下载失败，该图片url会被写到图片同目录下的not_downloaded_pictures.txt文件里；若图片全部下载成功则不会生成not_downloaded_pictures.txt。
+本次下载了769张图片，大小一共1.16GB，包括她原创微博中的所有图片。图片名为yyyymmdd+微博id的形式，若某条微博存在多张图片，则图片名中还会包括它在微博图片中的序号。若某图片下载失败，该图片url会被写到图片同目录下的not_downloaded_pictures.txt文件里；若图片全部下载成功则不会生成not_downloaded_pictures.txt。
 
 # 输入
 用户id，例如新浪微博昵称为"Dear-迪丽热巴"的id为"1669879400"
@@ -116,7 +116,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **screen_name**：存储微博昵称。如wb.weibo[0]['screen_name']为最新一条微博的昵称；<br>
 **id**：存储微博id。如wb.weibo[0]['id']为最新一条微博的id；<br>
 **text**：存储微博正文。如wb.weibo[0]['text']为最新一条微博的正文；<br>
-**pics**：存储原创微博的原始图片url。如wb.weibo[0]['pics']为最新一条微博的原始图片url，若该条微博有多张图片，则存储多个url，以英文逗号分割；若该微博没有图片，则值为""；<br>
+**pics**：存储原创微博的原始图片url。如wb.weibo[0]['pics']为最新一条微博的原始图片url，若该条微博有多张图片，则存储多个url，以英文逗号分割；若该微博没有图片，则值为''；<br>
 **location**：存储微博的发布位置。如wb.weibo[0]['location']为最新一条微博的发布位置，若该条微博没有位置信息，则值为''；<br>
 **created_at**：存储微博的发布时间。如wb.weibo[0]['created_at']为最新一条微博的发布时间；<br>
 **source**：存储微博的发布工具。如wb.weibo[0]['source']为最新一条微博的发布工具；<br>
@@ -135,7 +135,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **screen_name**：存储原始微博昵称。wb.weibo[i-1]['retweet']['screen_name']为该原始微博的昵称；<br>
 **id**：存储原始微博id。wb.weibo[i-1]['retweet']['id']为该原始微博的id；<br>
 **text**：存储原始微博正文。wb.weibo[i-1]['retweet']['text']为该原始微博的正文；<br>
-**pics**：存储原始微博的原始图片url。wb.weibo[i-1]['retweet']['pics']为该原始微博的原始图片url，若该原始微博有多张图片，则存储多个url，以英文逗号分割；若该原始微博没有图片，则值为""；<br>
+**pics**：存储原始微博的原始图片url。wb.weibo[i-1]['retweet']['pics']为该原始微博的原始图片url，若该原始微博有多张图片，则存储多个url，以英文逗号分割；若该原始微博没有图片，则值为''；<br>
 **location**：存储原始微博的发布位置。wb.weibo[i-1]['retweet']['location']为该原始微博的发布位置，若该原始微博没有位置信息，则值为''；<br>
 **created_at**：存储原始微博的发布时间。wb.weibo[i-1]['retweet']['created_at']为该原始微博的发布时间；<br>
 **source**：存储原始微博的发布工具。wb.weibo[i-1]['retweet']['source']为该原始微博的发布工具；<br>
