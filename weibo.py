@@ -67,9 +67,10 @@ class Weibo(object):
         html = html[:html.rfind(',')]
         html = '{' + html + '}'
         js = json.loads(html, strict=False)
-        weibo_info = js['status']
-        weibo = self.parse_weibo(weibo_info)
-        return weibo
+        weibo_info = js.get('status')
+        if weibo_info:
+            weibo = self.parse_weibo(weibo_info)
+            return weibo
 
     def get_pics(self, weibo_info):
         """获取微博原始图片url"""
@@ -274,10 +275,14 @@ class Weibo(object):
             is_long_retweet = retweeted_status['isLongText']
             if is_long:
                 weibo = self.get_long_weibo(weibo_id)
+                if not weibo:
+                    weibo = self.parse_weibo(weibo_info)
             else:
                 weibo = self.parse_weibo(weibo_info)
             if is_long_retweet:
                 retweet = self.get_long_weibo(retweet_id)
+                if not retweet:
+                    retweet = self.parse_weibo(retweeted_status)
             else:
                 retweet = self.parse_weibo(retweeted_status)
             retweet['created_at'] = self.standardize_date(
@@ -286,6 +291,8 @@ class Weibo(object):
         else:  # 原创
             if is_long:
                 weibo = self.get_long_weibo(weibo_id)
+                if not weibo:
+                    weibo = self.parse_weibo(weibo_info)
             else:
                 weibo = self.parse_weibo(weibo_info)
         weibo['created_at'] = self.standardize_date(weibo_info['created_at'])
