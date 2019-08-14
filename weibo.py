@@ -82,6 +82,21 @@ class Weibo(object):
             pics = ''
         return pics
 
+    def get_video_url(self, weibo_info):
+        """获取微博视频url"""
+        video_url = ''
+        if weibo_info.get('page_info'):
+            if weibo_info['page_info'].get('media_info'):
+                media_info = weibo_info['page_info']['media_info']
+                video_url = media_info.get('mp4_720p_mp4')
+                if not video_url:
+                    video_url = media_info.get('mp4_hd_url')
+                    if not video_url:
+                        video_url = media_info.get('mp4_sd_url')
+                        if not video_url:
+                            video_url = ''
+        return video_url
+
     def download_pic(self, url, pic_path):
         """下载单张图片"""
         try:
@@ -210,6 +225,7 @@ class Weibo(object):
         selector = etree.HTML(text_body)
         weibo['text'] = etree.HTML(text_body).xpath('string(.)')
         weibo['pics'] = self.get_pics(weibo_info)
+        weibo['video_url'] = self.get_video_url(weibo_info)
         weibo['location'] = self.get_location(selector)
         weibo['created_at'] = weibo_info['created_at']
         weibo['source'] = weibo_info['source']
@@ -364,12 +380,12 @@ class Weibo(object):
     def get_result_headers(self):
         """获取要写入结果文件的表头"""
         result_headers = [
-            'id', '正文', '原始图片url', '位置', '日期', '工具', '点赞数', '评论数', '转发数', '话题',
-            '@用户'
+            'id', '正文', '原始图片url', '视频url', '位置', '日期', '工具', '点赞数', '评论数',
+            '转发数', '话题', '@用户'
         ]
         if not self.filter:
-            result_headers2 = ['是否原创', '原始用户id', '原始用户昵称']
-            result_headers3 = ['原始微博' + r for r in result_headers]
+            result_headers2 = ['是否原创', '源用户id', '源用户昵称']
+            result_headers3 = ['源微博' + r for r in result_headers]
             result_headers = result_headers + result_headers2 + result_headers3
         return result_headers
 
