@@ -235,8 +235,12 @@ class Weibo(object):
 
     def parse_weibo(self, weibo_info):
         weibo = OrderedDict()
-        weibo['user_id'] = weibo_info['user']['id']
-        weibo['screen_name'] = weibo_info['user']['screen_name']
+        if weibo_info['user']:
+            weibo['user_id'] = weibo_info['user']['id']
+            weibo['screen_name'] = weibo_info['user']['screen_name']
+        else:
+            weibo['user_id'] = ''
+            weibo['screen_name'] = ''
         weibo['id'] = int(weibo_info['id'])
         text_body = weibo_info['text']
         selector = etree.HTML(text_body)
@@ -299,37 +303,42 @@ class Weibo(object):
 
     def get_one_weibo(self, info):
         """获取一条微博的全部信息"""
-        weibo_info = info['mblog']
-        weibo_id = weibo_info['id']
-        retweeted_status = weibo_info.get('retweeted_status')
-        is_long = weibo_info['isLongText']
-        if retweeted_status:  # 转发
-            retweet_id = retweeted_status['id']
-            is_long_retweet = retweeted_status['isLongText']
-            if is_long:
-                weibo = self.get_long_weibo(weibo_id)
-                if not weibo:
+        try:
+            weibo_info = info['mblog']
+            weibo_id = weibo_info['id']
+            retweeted_status = weibo_info.get('retweeted_status')
+            is_long = weibo_info['isLongText']
+            if retweeted_status:  # 转发
+                retweet_id = retweeted_status['id']
+                is_long_retweet = retweeted_status['isLongText']
+                if is_long:
+                    weibo = self.get_long_weibo(weibo_id)
+                    if not weibo:
+                        weibo = self.parse_weibo(weibo_info)
+                else:
                     weibo = self.parse_weibo(weibo_info)
-            else:
-                weibo = self.parse_weibo(weibo_info)
-            if is_long_retweet:
-                retweet = self.get_long_weibo(retweet_id)
-                if not retweet:
+                if is_long_retweet:
+                    retweet = self.get_long_weibo(retweet_id)
+                    if not retweet:
+                        retweet = self.parse_weibo(retweeted_status)
+                else:
                     retweet = self.parse_weibo(retweeted_status)
-            else:
-                retweet = self.parse_weibo(retweeted_status)
-            retweet['created_at'] = self.standardize_date(
-                retweeted_status['created_at'])
-            weibo['retweet'] = retweet
-        else:  # 原创
-            if is_long:
-                weibo = self.get_long_weibo(weibo_id)
-                if not weibo:
+                retweet['created_at'] = self.standardize_date(
+                    retweeted_status['created_at'])
+                weibo['retweet'] = retweet
+            else:  # 原创
+                if is_long:
+                    weibo = self.get_long_weibo(weibo_id)
+                    if not weibo:
+                        weibo = self.parse_weibo(weibo_info)
+                else:
                     weibo = self.parse_weibo(weibo_info)
-            else:
-                weibo = self.parse_weibo(weibo_info)
-        weibo['created_at'] = self.standardize_date(weibo_info['created_at'])
-        return weibo
+            weibo['created_at'] = self.standardize_date(
+                weibo_info['created_at'])
+            return weibo
+        except Exception as e:
+            print("Error: ", e)
+            traceback.print_exc()
 
     def get_one_page(self, page):
         """获取一页的全部微博"""
@@ -340,10 +349,12 @@ class Weibo(object):
                 for w in weibos:
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
-                        if (not self.filter) or ('retweet' not in wb.keys()):
-                            self.weibo.append(wb)
-                            self.got_count = self.got_count + 1
-                            self.print_weibo(wb)
+                        if wb:
+                            if (not self.filter) or (
+                                    'retweet' not in wb.keys()):
+                                self.weibo.append(wb)
+                                self.got_count = self.got_count + 1
+                                self.print_weibo(wb)
         except Exception as e:
             print("Error: ", e)
             traceback.print_exc()
@@ -479,7 +490,7 @@ class Weibo(object):
 
 def main():
     try:
-        user_id = 1669879400  # 可以改成任意合法的用户id
+        user_id = 1721396755  # 可以改成任意合法的用户id
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
         video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
