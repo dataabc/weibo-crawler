@@ -20,23 +20,39 @@ from tqdm import tqdm
 
 
 class Weibo(object):
-    def __init__(self, user_id, filter=0, pic_download=0, video_download=0):
+    def __init__(self,
+                 user_id,
+                 filter=0,
+                 since_date='1900-01-01',
+                 pic_download=0,
+                 video_download=0):
         """Weibo类初始化"""
         if not isinstance(user_id, int):
             sys.exit(u'user_id值应为一串数字形式,请重新输入')
         if filter != 0 and filter != 1:
             sys.exit(u'filter值应为数字0或1,请重新输入')
+        if not self.is_date(since_date):
+            sys.exit(u'since_date值应为yyyy-mm-dd形式,请重新输入')
         if pic_download != 0 and pic_download != 1:
             sys.exit(u'pic_download值应为数字0或1,请重新输入')
         if video_download != 0 and video_download != 1:
             sys.exit(u'video_download值应为0或1,请重新输入')
         self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
         self.filter = filter  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
+        self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         self.pic_download = pic_download  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
         self.video_download = video_download  # 取值范围为0、1,程序默认为0,代表不下载微博视频,1代表下载
         self.weibo = []  # 存储爬取到的所有微博信息
         self.user = {}  # 存储目标微博用户信息
         self.got_count = 0  # 爬取到的微博数
+
+    def is_date(self, since_date):
+        """判断日期格式是否正确"""
+        try:
+            datetime.strptime(since_date, "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
 
     def get_json(self, params):
         """获取网页中json数据"""
@@ -350,6 +366,8 @@ class Weibo(object):
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
+                            if wb['created_at'] < self.since_date:
+                                return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
@@ -456,7 +474,9 @@ class Weibo(object):
         random_pages = random.randint(1, 5)
         for page in tqdm(range(1, page_count + 1), desc=u"进度"):
             print(u'第%d页' % page)
-            self.get_one_page(page)
+            is_end = self.get_one_page(page)
+            if is_end:
+                break
 
             if page % 20 == 0:  # 每爬20页写入一次文件
                 self.write_file(wrote_count)
@@ -490,11 +510,12 @@ class Weibo(object):
 
 def main():
     try:
-        user_id = 1721396755  # 可以改成任意合法的用户id
+        user_id = 1669879400  # 可以改成任意合法的用户id
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
+        since_date = '2018-01-01'  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
         video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
-        wb = Weibo(user_id, filter, pic_download, video_download)
+        wb = Weibo(user_id, filter, since_date, pic_download, video_download)
         wb.start()
     except Exception as e:
         print('Error: ', e)
