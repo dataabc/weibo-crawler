@@ -21,14 +21,11 @@ from tqdm import tqdm
 
 class Weibo(object):
     def __init__(self,
-                 user_id,
                  filter=0,
                  since_date='1900-01-01',
                  pic_download=0,
                  video_download=0):
         """Weibo类初始化"""
-        if not isinstance(user_id, int):
-            sys.exit(u'user_id值应为一串数字形式,请重新输入')
         if filter != 0 and filter != 1:
             sys.exit(u'filter值应为数字0或1,请重新输入')
         if not self.is_date(since_date):
@@ -37,7 +34,7 @@ class Weibo(object):
             sys.exit(u'pic_download值应为数字0或1,请重新输入')
         if video_download != 0 and video_download != 1:
             sys.exit(u'video_download值应为0或1,请重新输入')
-        self.user_id = user_id  # 用户id,即需要我们输入的数字,如昵称为"Dear-迪丽热巴"的id为1669879400
+        self.user_id = ''  # 用户id,如昵称为"Dear-迪丽热巴"的id为'1669879400'
         self.filter = filter  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         self.pic_download = pic_download  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
@@ -418,7 +415,7 @@ class Weibo(object):
                 os.makedirs(file_dir)
             if type == 'img' or type == 'video':
                 return file_dir
-            file_path = file_dir + os.sep + '%d' % self.user_id + '.' + type
+            file_path = file_dir + os.sep + self.user_id + '.' + type
             return file_path
         except Exception as e:
             print('Error: ', e)
@@ -494,16 +491,31 @@ class Weibo(object):
         self.write_file(wrote_count)  # 将剩余不足20页的微博写入文件
         print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
-    def start(self):
+    def get_user_list(self, file_name):
+        """获取文件中的微博id信息"""
+        with open(file_name, 'r') as f:
+            user_id_list = f.read().splitlines()
+        return user_id_list
+
+    def initialize_info(self, user_id):
+        """初始化爬虫信息"""
+        self.weibo = []
+        self.user = {}
+        self.got_count = 0
+        self.user_id = user_id
+
+    def start(self, user_id_list):
         """运行爬虫"""
         try:
-            self.get_pages()
-            print(u'信息抓取完毕')
-            print('*' * 100)
-            if self.pic_download == 1:
-                self.download_files('img')
-            if self.video_download == 1:
-                self.download_files('video')
+            for user_id in user_id_list:
+                self.initialize_info(user_id)
+                self.get_pages()
+                print(u'信息抓取完毕')
+                print('*' * 100)
+                if self.pic_download == 1:
+                    self.download_files('img')
+                if self.video_download == 1:
+                    self.download_files('video')
         except Exception as e:
             print('Error: ', e)
             traceback.print_exc()
@@ -511,13 +523,26 @@ class Weibo(object):
 
 def main():
     try:
-        user_id = 1669879400  # 可以改成任意合法的用户id
+        # 以下是程序配置信息，可以根据自己需求修改
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         since_date = '2018-01-01'  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
         video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
-        wb = Weibo(user_id, filter, since_date, pic_download, video_download)
-        wb.start()
+
+        wb = Weibo(filter, since_date, pic_download, video_download)
+
+        # user_id_list包含了要爬的目标微博id，可以是一个，也可以是多个，也可以从文件中读取
+        # 爬单个微博，user_id_list如下所示，可以改成任意合法的用户id
+        user_id_list = ['1669879400']
+
+        # 爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
+        # user_id_list = ['1669879400', '1729370543']
+
+        # 也可以在文件中读取，文件中可以包含很多user_id，每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
+        # 比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:
+        # user_id_list = wb.get_user_list('user_id_list.txt')
+
+        wb.start(user_id_list)
     except Exception as e:
         print('Error: ', e)
         traceback.print_exc()
