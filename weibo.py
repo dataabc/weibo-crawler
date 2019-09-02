@@ -23,6 +23,7 @@ class Weibo(object):
     def __init__(self,
                  filter=0,
                  since_date='1900-01-01',
+                 mongodb_write=0,
                  pic_download=0,
                  video_download=0):
         """Weibo类初始化"""
@@ -30,6 +31,8 @@ class Weibo(object):
             sys.exit(u'filter值应为数字0或1,请重新输入')
         if not self.is_date(since_date):
             sys.exit(u'since_date值应为yyyy-mm-dd形式,请重新输入')
+        if mongodb_write != 0 and mongodb_write != 1:
+            sys.exit(u'mongodb_write值应为0或1,请重新输入')
         if pic_download != 0 and pic_download != 1:
             sys.exit(u'pic_download值应为数字0或1,请重新输入')
         if video_download != 0 and video_download != 1:
@@ -37,6 +40,7 @@ class Weibo(object):
         self.user_id = ''  # 用户id,如昵称为"Dear-迪丽热巴"的id为'1669879400'
         self.filter = filter  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
+        self.mongodb_write = mongodb_write  # 值为0代表不将结果写入MongoDB数据库,1代表写入
         self.pic_download = pic_download  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
         self.video_download = video_download  # 取值范围为0、1,程序默认为0,代表不下载微博视频,1代表下载
         self.weibo = []  # 存储爬取到的所有微博信息
@@ -457,10 +461,26 @@ class Weibo(object):
         print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
         print(self.get_filepath('csv'))
 
-    def write_file(self, wrote_count):
-        """将爬到的信息写入文件"""
+    def write_mongodb(self, wrote_count):
+        """将爬取的信息写入MongoDB数据库"""
+        from pymongo import MongoClient
+
+        client = MongoClient()
+        db = client['weibo']
+        collection = db['weibo']
+        for w in self.weibo[wrote_count:]:
+            if not collection.find_one({'id': w['id']}):
+                collection.insert_one(w)
+            else:
+                collection.update_one({'id': w['id']}, {'$set': w})
+        print(u'%d条微博写入MongoDB数据库完毕' % self.got_count)
+
+    def write_data(self, wrote_count):
+        """将爬到的信息写入文件或数据库"""
         if self.got_count > wrote_count:
             self.write_csv(wrote_count)
+            if self.mongodb_write:
+                self.write_mongodb(wrote_count)
 
     def get_pages(self):
         """获取全部微博"""
@@ -477,7 +497,7 @@ class Weibo(object):
                 break
 
             if page % 20 == 0:  # 每爬20页写入一次文件
-                self.write_file(wrote_count)
+                self.write_data(wrote_count)
                 wrote_count = self.got_count
 
             # 通过加入随机等待避免被限制。爬虫速度过快容易被系统限制(一段时间后限
@@ -488,7 +508,7 @@ class Weibo(object):
                 page1 = page
                 random_pages = random.randint(1, 5)
 
-        self.write_file(wrote_count)  # 将剩余不足20页的微博写入文件
+        self.write_data(wrote_count)  # 将剩余不足20页的微博写入文件
         print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
     def get_user_list(self, file_name):
@@ -526,21 +546,22 @@ def main():
         # 以下是程序配置信息，可以根据自己需求修改
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         since_date = '2018-01-01'  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
+        """值为0代表不将结果写入MongoDB数据库,1代表写入；若要写入MongoDB数据库，
+        请先安装MongoDB数据库和pymongo，pymongo安装方法为命令行运行:pip install pymongo"""
+        mongodb_write = 0
         pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
         video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
 
-        wb = Weibo(filter, since_date, pic_download, video_download)
-
-        # user_id_list包含了要爬的目标微博id，可以是一个，也可以是多个，也可以从文件中读取
-        # 爬单个微博，user_id_list如下所示，可以改成任意合法的用户id
+        wb = Weibo(filter, since_date, mongodb_write, pic_download,
+                   video_download)
+        """user_id_list包含了要爬的目标微博id，可以是一个，也可以是多个，也可以从文件中读取
+        爬单个微博，user_id_list如下所示，可以改成任意合法的用户id"""
         user_id_list = ['1669879400']
-
-        # 爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
-        # user_id_list = ['1669879400', '1729370543']
-
-        # 也可以在文件中读取，文件中可以包含很多user_id，每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
-        # 比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:
-        # user_id_list = wb.get_user_list('user_id_list.txt')
+        """爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
+        user_id_list = ['1669879400', '1729370543']
+        也可以在文件中读取user_id_list，文件中可以包含很多user_id，每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
+        比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:
+        user_id_list = wb.get_user_list('user_id_list.txt')"""
 
         wb.start(user_id_list)
     except Exception as e:
