@@ -368,8 +368,12 @@ class Weibo(object):
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
-                            if wb['created_at'] < self.since_date:
-                                return True
+                            _wb_created_at = datetime.strptime(wb['created_at'], '%Y-%m-%d') # 用dt对象来比较
+                            _since_date = datetime.strptime(self.since_date, '%Y-%m-%d')
+                            if _wb_created_at < _since_date: # must be datetime object to compare
+                                # dont use return, the pinned msg which is elder than start time will stop the process
+                                # 对于有置顶的老旧微博时，会判断早于下载日期，然后程序退出, 用next替代
+                                next
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
