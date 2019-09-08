@@ -24,6 +24,7 @@ class Weibo(object):
                  filter=0,
                  since_date='1900-01-01',
                  mongodb_write=0,
+                 mysql_write=0,
                  pic_download=0,
                  video_download=0):
         """Weibo类初始化"""
@@ -33,6 +34,8 @@ class Weibo(object):
             sys.exit(u'since_date值应为yyyy-mm-dd形式,请重新输入')
         if mongodb_write != 0 and mongodb_write != 1:
             sys.exit(u'mongodb_write值应为0或1,请重新输入')
+        if mysql_write != 0 and mysql_write != 1:
+            sys.exit(u'mysql_write值应为0或1,请重新输入')
         if pic_download != 0 and pic_download != 1:
             sys.exit(u'pic_download值应为数字0或1,请重新输入')
         if video_download != 0 and video_download != 1:
@@ -41,11 +44,14 @@ class Weibo(object):
         self.filter = filter  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         self.mongodb_write = mongodb_write  # 值为0代表不将结果写入MongoDB数据库,1代表写入
+        self.mysql_write = mysql_write  # 值为0代表不将结果写入MySQL数据库,1代表写入
         self.pic_download = pic_download  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
         self.video_download = video_download  # 取值范围为0、1,程序默认为0,代表不下载微博视频,1代表下载
         self.weibo = []  # 存储爬取到的所有微博信息
         self.user = {}  # 存储目标微博用户信息
         self.got_count = 0  # 爬取到的微博数
+        self.mysql_config = {
+        }  # MySQL数据库连接配置，可以不填，当使用者的mysql用户名、密码等与本程序默认值不同时，需要通过mysql_config来自定义
 
     def is_date(self, since_date):
         """判断日期格式是否正确"""
@@ -475,10 +481,125 @@ class Weibo(object):
                 collection.update_one({'id': w['id']}, {'$set': w})
         print(u'%d条微博写入MongoDB数据库完毕' % self.got_count)
 
+    def change_mysql_config(self, mysql_config):
+        """修改MySQL数据库连接配置"""
+        self.mysql_config = mysql_config
+
+    def mysql_create(self, connection, sql):
+        """创建MySQL数据库或表"""
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(sql)
+        finally:
+            connection.close()
+
+    def mysql_create_database(self, mysql_config, sql):
+        """创建MySQL数据库"""
+        import pymysql
+
+        if self.mysql_config:
+            mysql_config = self.mysql_config
+        connection = pymysql.connect(**mysql_config)
+        self.mysql_create(connection, sql)
+
+    def mysql_create_table(self, mysql_config, sql):
+        """创建MySQL表"""
+        import pymysql
+
+        if self.mysql_config:
+            mysql_config = self.mysql_config
+        mysql_config['db'] = 'weibo'
+        connection = pymysql.connect(**mysql_config)
+        self.mysql_create(connection, sql)
+
+    def mysql_insert(self, mysql_config, table, data_list):
+        """向MySQL表插入或更新数据"""
+        import pymysql
+
+        if len(data_list) > 0:
+            keys = ', '.join(data_list[0].keys())
+            values = ', '.join(['%s'] * len(data_list[0]))
+            if self.mysql_config:
+                mysql_config = self.mysql_config
+            mysql_config['db'] = 'weibo'
+            connection = pymysql.connect(**mysql_config)
+            cursor = connection.cursor()
+            sql = """INSERT INTO {table}({keys}) VALUES ({values}) ON
+                     DUPLICATE KEY UPDATE""".format(table=table,
+                                                    keys=keys,
+                                                    values=values)
+            update = ','.join([
+                " {key} = values({key})".format(key=key)
+                for key in data_list[0]
+            ])
+            sql += update
+            try:
+                cursor.executemany(
+                    sql, [tuple(data.values()) for data in data_list])
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                print('Error: ', e)
+                traceback.print_exc()
+            finally:
+                connection.close()
+
+    def write_mysql(self, wrote_count):
+        """将爬取的信息写入MySQL数据库"""
+        mysql_config = {
+            'host': 'localhost',
+            'port': 3306,
+            'user': 'root',
+            'password': '123456',
+            'charset': 'utf8mb4'
+        }
+        create_database = """CREATE DATABASE IF NOT EXISTS weibo DEFAULT
+                         CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
+        # 创建'weibo'数据库
+        self.mysql_create_database(mysql_config, create_database)
+        create_table = """
+                CREATE TABLE IF NOT EXISTS weibo (
+                id varchar(20) NOT NULL,
+                user_id varchar(20),
+                screen_name varchar(20),
+                text varchar(2000),
+                topics varchar(200),
+                at_users varchar(200),
+                pics varchar(1000),
+                video_url varchar(300),
+                location varchar(100),
+                created_at DATETIME,
+                source varchar(30),
+                attitudes_count INT,
+                comments_count INT,
+                reposts_count INT,
+                retweet_id varchar(20),
+                PRIMARY KEY (id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
+        # 创建'weibo'表
+        self.mysql_create_table(mysql_config, create_table)
+        weibo_list = []
+        retweet_list = []
+        for w in self.weibo[wrote_count:]:
+            if 'retweet' in w:
+                w['retweet']['retweet_id'] = ''
+                retweet_list.append(w['retweet'])
+                w['retweet_id'] = w['retweet']['id']
+                del w['retweet']
+            else:
+                w['retweet_id'] = ''
+            weibo_list.append(w)
+        # 在'weibo'表中插入或更新微博数据
+        self.mysql_insert(mysql_config, 'weibo', retweet_list)
+        self.mysql_insert(mysql_config, 'weibo', weibo_list)
+        print(u'%d条微博写入MySQL数据库完毕' % self.got_count)
+
     def write_data(self, wrote_count):
         """将爬到的信息写入文件或数据库"""
         if self.got_count > wrote_count:
             self.write_csv(wrote_count)
+            if self.mysql_write:
+                self.write_mysql(wrote_count)
             if self.mongodb_write:
                 self.write_mongodb(wrote_count)
 
@@ -546,22 +667,42 @@ def main():
         # 以下是程序配置信息，可以根据自己需求修改
         filter = 1  # 值为0表示爬取全部微博（原创微博+转发微博），值为1表示只爬取原创微博
         since_date = '2018-01-01'  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
-        """值为0代表不将结果写入MongoDB数据库,1代表写入；若要写入MongoDB数据库，
+        """mongodb_write值为0代表不将结果写入MongoDB数据库,1代表写入；若要写入MongoDB数据库，
         请先安装MongoDB数据库和pymongo，pymongo安装方法为命令行运行:pip install pymongo"""
         mongodb_write = 0
-        pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
-        video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
+        """mysql_write值为0代表不将结果写入MySQL数据库,1代表写入;若要写入MySQL数据库，
+        请先安装MySQL数据库和pymysql，pymysql安装方法为命令行运行:pip install pymysql"""
+        mysql_write = 0
+        pic_download = 0  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
+        video_download = 0  # 值为0代表不下载微博视频,1代表下载微博视频
 
-        wb = Weibo(filter, since_date, mongodb_write, pic_download,
-                   video_download)
+        wb = Weibo(filter, since_date, mongodb_write, mysql_write,
+                   pic_download, video_download)
+
+        # 下面是自定义MySQL数据库连接配置(可选)
+        """因为操作MySQL数据库需要用户名、密码等参数，本程序默认为:
+        mysql_config = {
+            'host': 'localhost',
+            'port': 3306,
+            'user': 'root',
+            'password': '123456',
+            'charset': 'utf8mb4'
+        }
+        大家的参数配置如果和默认值不同，可以将上面的参数值替换成自己的，
+        然后添加如下代码，使修改生效，如果你的参数和默认值相同则不需要下面的代码:
+        wb.change_mysql_config(mysql_config)"""
+
+        # 下面是配置user_id_list
         """user_id_list包含了要爬的目标微博id，可以是一个，也可以是多个，也可以从文件中读取
-        爬单个微博，user_id_list如下所示，可以改成任意合法的用户id"""
+        爬单个微博，user_id_list如下所示，可以改成任意合法的用户id
         user_id_list = ['1669879400']
-        """爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
+        爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
         user_id_list = ['1669879400', '1729370543']
-        也可以在文件中读取user_id_list，文件中可以包含很多user_id，每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
+        也可以在文件中读取user_id_list，文件中可以包含很多user_id，
+        每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
         比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:
         user_id_list = wb.get_user_list('user_id_list.txt')"""
+        user_id_list = ['1669879400']
 
         wb.start(user_id_list)
     except Exception as e:
