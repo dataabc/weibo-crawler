@@ -364,6 +364,15 @@ class Weibo(object):
             print("Error: ", e)
             traceback.print_exc()
 
+    def is_pin(self, info):
+        """判断微博是否为置顶微博"""
+        weibo_info = info['mblog']
+        title = weibo_info.get('title')
+        if title and title.get('text') == u'置顶':
+            return True
+        else:
+            return False
+
     def get_one_page(self, page):
         """获取一页的全部微博"""
         try:
@@ -374,8 +383,15 @@ class Weibo(object):
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
-                            if wb['created_at'] < self.since_date:
-                                return True
+                            created_at = datetime.strptime(
+                                wb['created_at'], "%Y-%m-%d")
+                            since_date = datetime.strptime(
+                                self.since_date, "%Y-%m-%d")
+                            if created_at < since_date:
+                                if self.is_pin(w):
+                                    continue
+                                else:
+                                    return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
@@ -553,10 +569,11 @@ class Weibo(object):
             'password': '123456',
             'charset': 'utf8mb4'
         }
+        # 创建'weibo'数据库
         create_database = """CREATE DATABASE IF NOT EXISTS weibo DEFAULT
                          CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
-        # 创建'weibo'数据库
         self.mysql_create_database(mysql_config, create_database)
+        # 创建'weibo'表
         create_table = """
                 CREATE TABLE IF NOT EXISTS weibo (
                 id varchar(20) NOT NULL,
@@ -576,7 +593,6 @@ class Weibo(object):
                 retweet_id varchar(20),
                 PRIMARY KEY (id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
-        # 创建'weibo'表
         self.mysql_create_table(mysql_config, create_table)
         weibo_list = []
         retweet_list = []
@@ -673,8 +689,8 @@ def main():
         """mysql_write值为0代表不将结果写入MySQL数据库,1代表写入;若要写入MySQL数据库，
         请先安装MySQL数据库和pymysql，pymysql安装方法为命令行运行:pip install pymysql"""
         mysql_write = 0
-        pic_download = 0  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
-        video_download = 0  # 值为0代表不下载微博视频,1代表下载微博视频
+        pic_download = 1  # 值为0代表不下载微博原始图片,1代表下载微博原始图片
+        video_download = 1  # 值为0代表不下载微博视频,1代表下载微博视频
 
         wb = Weibo(filter, since_date, mongodb_write, mysql_write,
                    pic_download, video_download)
