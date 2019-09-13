@@ -73,6 +73,17 @@ class Weibo(object):
         js = self.get_json(params)
         return js
 
+    def user_to_mongodb(self):
+        """将爬取的用户信息写入MongoDB数据库"""
+        user_list = [self.user]
+        self.info_to_mongodb('user', user_list)
+        print(u'%s信息写入MongoDB数据库完毕' % self.user['screen_name'])
+
+    def user_to_database(self):
+        """将用户信息写入数据库"""
+        if self.mongodb_write:
+            self.user_to_mongodb()
+
     def get_user_info(self):
         """获取用户信息"""
         params = {'containerid': '100505' + str(self.user_id)}
@@ -83,6 +94,7 @@ class Weibo(object):
                 del info['toolbar_menus']
             user_info = self.standardize_info(info)
             self.user = user_info
+            self.user_to_database()
             return user_info
 
     def get_long_weibo(self, id):
@@ -364,7 +376,7 @@ class Weibo(object):
             print("Error: ", e)
             traceback.print_exc()
 
-    def is_pin(self, info):
+    def is_pinned_weibo(self, info):
         """判断微博是否为置顶微博"""
         weibo_info = info['mblog']
         title = weibo_info.get('title')
@@ -388,7 +400,7 @@ class Weibo(object):
                             since_date = datetime.strptime(
                                 self.since_date, "%Y-%m-%d")
                             if created_at < since_date:
-                                if self.is_pin(w):
+                                if self.is_pinned_weibo(w):
                                     continue
                                 else:
                                     return True
@@ -483,18 +495,22 @@ class Weibo(object):
         print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
         print(self.get_filepath('csv'))
 
-    def write_mongodb(self, wrote_count):
+    def info_to_mongodb(self, collection, info_list):
         """将爬取的信息写入MongoDB数据库"""
         from pymongo import MongoClient
 
         client = MongoClient()
         db = client['weibo']
-        collection = db['weibo']
-        for w in self.weibo[wrote_count:]:
-            if not collection.find_one({'id': w['id']}):
-                collection.insert_one(w)
+        collection = db[collection]
+        for info in info_list:
+            if not collection.find_one({'id': info['id']}):
+                collection.insert_one(info)
             else:
-                collection.update_one({'id': w['id']}, {'$set': w})
+                collection.update_one({'id': info['id']}, {'$set': info})
+
+    def weibo_to_mongodb(self, wrote_count):
+        """将爬取的微博信息写入MongoDB数据库"""
+        self.info_to_mongodb('weibo', self.weibo[wrote_count:])
         print(u'%d条微博写入MongoDB数据库完毕' % self.got_count)
 
     def change_mysql_config(self, mysql_config):
@@ -617,7 +633,7 @@ class Weibo(object):
             if self.mysql_write:
                 self.write_mysql(wrote_count)
             if self.mongodb_write:
-                self.write_mongodb(wrote_count)
+                self.weibo_to_mongodb(wrote_count)
 
     def get_pages(self):
         """获取全部微博"""
