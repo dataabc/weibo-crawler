@@ -79,8 +79,47 @@ class Weibo(object):
         self.info_to_mongodb('user', user_list)
         print(u'%s信息写入MongoDB数据库完毕' % self.user['screen_name'])
 
+    def user_to_mysql(self):
+        """将爬取的用户信息写入MySQL数据库"""
+        mysql_config = {
+            'host': 'localhost',
+            'port': 3306,
+            'user': 'root',
+            'password': '123456',
+            'charset': 'utf8mb4'
+        }
+        # 创建'weibo'数据库
+        create_database = """CREATE DATABASE IF NOT EXISTS weibo DEFAULT
+                         CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
+        self.mysql_create_database(mysql_config, create_database)
+        # 创建'user'表
+        create_table = """
+                CREATE TABLE IF NOT EXISTS user (
+                id varchar(20) NOT NULL,
+                screen_name varchar(30),
+                gender varchar(10),
+                statuses_count INT,
+                followers_count INT,
+                follow_count INT,
+                description varchar(140),
+                profile_url varchar(200),
+                profile_image_url varchar(200),
+                avatar_hd varchar(200),
+                urank INT,
+                mbrank INT,
+                verified BOOLEAN DEFAULT 0,
+                verified_type INT,
+                verified_reason varchar(140),
+                PRIMARY KEY (id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
+        self.mysql_create_table(mysql_config, create_table)
+        self.mysql_insert(mysql_config, 'user', [self.user])
+        print(u'%s信息写入MySQL数据库完毕' % self.user['screen_name'])
+
     def user_to_database(self):
         """将用户信息写入数据库"""
+        if self.mysql_write:
+            self.user_to_mysql()
         if self.mongodb_write:
             self.user_to_mongodb()
 
@@ -90,12 +129,26 @@ class Weibo(object):
         js = self.get_json(params)
         if js['ok']:
             info = js['data']['userInfo']
-            if info.get('toolbar_menus'):
-                del info['toolbar_menus']
-            user_info = self.standardize_info(info)
-            self.user = user_info
+            user_info = {}
+            user_info['id'] = self.user_id
+            user_info['screen_name'] = info.get('screen_name', '')
+            user_info['gender'] = info.get('gender', '')
+            user_info['statuses_count'] = info.get('statuses_count', 0)
+            user_info['followers_count'] = info.get('followers_count', 0)
+            user_info['follow_count'] = info.get('follow_count', 0)
+            user_info['description'] = info.get('description', '')
+            user_info['profile_url'] = info.get('profile_url', '')
+            user_info['profile_image_url'] = info.get('profile_image_url', '')
+            user_info['avatar_hd'] = info.get('avatar_hd', '')
+            user_info['urank'] = info.get('urank', 0)
+            user_info['mbrank'] = info.get('mbrank', 0)
+            user_info['verified'] = info.get('verified', False)
+            user_info['verified_type'] = info.get('verified_type', 0)
+            user_info['verified_reason'] = info.get('verified_reason', '')
+            user = self.standardize_info(user_info)
+            self.user = user
             self.user_to_database()
-            return user_info
+            return user
 
     def get_long_weibo(self, id):
         """获取长微博"""
@@ -300,7 +353,7 @@ class Weibo(object):
         """打印用户信息"""
         print('+' * 100)
         print(u'用户信息')
-        print(u'用户id：%d' % self.user['id'])
+        print(u'用户id：%s' % self.user['id'])
         print(u'用户昵称：%s' % self.user['screen_name'])
         gender = u'女' if self.user['gender'] == 'f' else u'男'
         print(u'性别：%s' % gender)
@@ -576,8 +629,8 @@ class Weibo(object):
             finally:
                 connection.close()
 
-    def write_mysql(self, wrote_count):
-        """将爬取的信息写入MySQL数据库"""
+    def weibo_to_mysql(self, wrote_count):
+        """将爬取的用户信息写入MySQL数据库"""
         mysql_config = {
             'host': 'localhost',
             'port': 3306,
@@ -585,10 +638,6 @@ class Weibo(object):
             'password': '123456',
             'charset': 'utf8mb4'
         }
-        # 创建'weibo'数据库
-        create_database = """CREATE DATABASE IF NOT EXISTS weibo DEFAULT
-                         CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
-        self.mysql_create_database(mysql_config, create_database)
         # 创建'weibo'表
         create_table = """
                 CREATE TABLE IF NOT EXISTS weibo (
@@ -631,7 +680,7 @@ class Weibo(object):
         if self.got_count > wrote_count:
             self.write_csv(wrote_count)
             if self.mysql_write:
-                self.write_mysql(wrote_count)
+                self.weibo_to_mysql(wrote_count)
             if self.mongodb_write:
                 self.weibo_to_mongodb(wrote_count)
 
