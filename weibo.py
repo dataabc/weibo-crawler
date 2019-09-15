@@ -50,6 +50,7 @@ class Weibo(object):
         self.weibo = []  # 存储爬取到的所有微博信息
         self.user = {}  # 存储目标微博用户信息
         self.got_count = 0  # 爬取到的微博数
+        self.weibo_id_list = []  # 存储爬取到的所有微博id
         self.mysql_config = {
         }  # MySQL数据库连接配置，可以不填，当使用者的mysql用户名、密码等与本程序默认值不同时，需要通过mysql_config来自定义
 
@@ -448,6 +449,8 @@ class Weibo(object):
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
+                            if wb['id'] in self.weibo_id_list:
+                                continue
                             created_at = datetime.strptime(
                                 wb['created_at'], "%Y-%m-%d")
                             since_date = datetime.strptime(
@@ -460,6 +463,7 @@ class Weibo(object):
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
+                                self.weibo_id_list.append(wb['id'])
                                 self.got_count = self.got_count + 1
                                 self.print_weibo(wb)
         except Exception as e:
@@ -725,6 +729,7 @@ class Weibo(object):
         self.user = {}
         self.got_count = 0
         self.user_id = user_id
+        self.weibo_id_list = []
 
     def start(self, user_id_list):
         """运行爬虫"""
