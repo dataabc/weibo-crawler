@@ -332,6 +332,7 @@ class Weibo(object):
             weibo['user_id'] = ''
             weibo['screen_name'] = ''
         weibo['id'] = int(weibo_info['id'])
+        weibo['bid'] = weibo_info['bid']
         text_body = weibo_info['text']
         selector = etree.HTML(text_body)
         weibo['text'] = etree.HTML(text_body).xpath('string(.)')
@@ -519,8 +520,8 @@ class Weibo(object):
     def get_result_headers(self):
         """获取要写入结果文件的表头"""
         result_headers = [
-            'id', '正文', '原始图片url', '视频url', '位置', '日期', '工具', '点赞数', '评论数',
-            '转发数', '话题', '@用户'
+            'id', 'bid', '正文', '原始图片url', '视频url', '位置', '日期', '工具', '点赞数',
+            '评论数', '转发数', '话题', '@用户'
         ]
         if not self.filter:
             result_headers2 = ['是否原创', '源用户id', '源用户昵称']
@@ -646,6 +647,7 @@ class Weibo(object):
         create_table = """
                 CREATE TABLE IF NOT EXISTS weibo (
                 id varchar(20) NOT NULL,
+                bid varchar(12) NOT NULL,
                 user_id varchar(20),
                 screen_name varchar(20),
                 text varchar(2000),
