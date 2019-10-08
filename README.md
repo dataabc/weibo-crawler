@@ -119,12 +119,15 @@ user_id设置代码位于**weibo.py**的main函数里，具体代码如下：
         # 爬多个微博，可以改成任意合法的用户id
         user_id_list = ['1669879400', '1729370543']
 ```
-或者
+也可以读取文件中的用户id，每个user_id占一行，也可以在user_id后面加注释（可选），如用户昵称等信息，user_id和注释之间必需要有空格，文件名任意，类型为txt，位置位于本程序的同目录下，文件内容示例如下：
+```
+1223178222 胡歌
+1669879400 迪丽热巴
+1729370543 郭碧婷
+```
+假如文件叫user_id_list.txt，则user_id设置代码为：
 ```python
-        """可以在文件中读取user_id_list，文件中可以包含很多user_id，
-        每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
-        比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:"""
-        user_id_list = wb.get_user_list('user_id_list.txt')
+user_id_list = wb.get_user_list('user_id_list.txt')
 ```
 ### 4.设置数据库（可选）
 本部分是可选部分，如果不需要将爬取信息写入数据库，可跳过这一步。本程序目前支持MySQL数据库和MongoDB数据库，如果你需要写入其它数据库，可以参考这两个数据库的写法自己编写。<br>
@@ -244,7 +247,11 @@ $ python weibo.py
         爬多个微博，user_id_list如下所示，可以改成任意合法的用户id
         user_id_list = ['1669879400', '1729370543']
         也可以在文件中读取user_id_list，文件中可以包含很多user_id，
-        每个user_id占一行，文件名任意，类型为txt，位置位于本程序的同目录下，
+        每个user_id占一行，也可以在user_id后面加注释，如用户昵称，user_id和注释之间必需要有空格，
+        文件名任意，类型为txt，位置位于本程序的同目录下，文件内容可以为如下形式：
+        1223178222 胡歌
+        1669879400 迪丽热巴
+        1729370543 郭碧婷
         比如文件可以叫user_id_list.txt，读取文件中的user_id_list如下所示:
         user_id_list = wb.get_user_list('user_id_list.txt')"""
         user_id_list = ['1669879400']
