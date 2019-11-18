@@ -219,7 +219,7 @@ class Weibo(object):
                 key = 'video_url'
             print(u'即将进行%s下载' % describe)
             file_dir = self.get_filepath(type)
-            for w in tqdm(self.weibo, desc=u'%s下载进度' % describe):
+            for w in tqdm(self.weibo, desc='Download progress'):
                 if w[key]:
                     file_prefix = w['created_at'][:11].replace(
                         '-', '') + '_' + str(w['id'])
@@ -710,7 +710,7 @@ class Weibo(object):
         self.print_user_info()
         page1 = 0
         random_pages = random.randint(1, 5)
-        for page in tqdm(range(1, page_count + 1), desc=u"进度"):
+        for page in tqdm(range(1, page_count + 1), desc='Progress'):
             print(u'第%d页' % page)
             is_end = self.get_one_page(page)
             if is_end:
