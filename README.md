@@ -162,11 +162,11 @@ since_date值可以是日期，也可以是整数。如果是日期，代表爬�
 ```
 代表爬取最近10天的微博，这个说法不是特别准确，准确说是爬取发布时间从**10天前到本程序开始执行时**之间的微博。<br>
 **设置write_mode**<br>
-write_mode控制结果文件格式，取值范围是csv、txt、mongo和mysql，分别代表将结果文件写入csv、txt、MongoDB和MySQL数据库。write_mode可以同时包含这些取值中的一个或几个，如：
+write_mode控制结果文件格式，取值范围是csv、mongo和mysql，分别代表将结果文件写入csv、txt、MongoDB和MySQL数据库。write_mode可以同时包含这些取值中的一个或几个，如：
 ```
-"write_mode": ["csv", "txt"],
+"write_mode": ["csv"],
 ```
-代表将结果信息写入csv文件和txt文件。特别注意，如果你想写入数据库，除了在write_mode添加对应数据库的名字外，还应该安装相关数据库和对应python模块，具体操作见[设置数据库](#4设置数据库可选)部分。<br>
+代表将结果信息写入csv文件。特别注意，如果你想写入数据库，除了在write_mode添加对应数据库的名字外，还应该安装相关数据库和对应python模块，具体操作见[设置数据库](#4设置数据库可选)部分。<br>
 **设置original_pic_download**<br>
 original_pic_download控制是否下载**原创**微博中的图片，值为1代表下载，值为0代表不下载，如
 ```
