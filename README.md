@@ -16,8 +16,10 @@
 - 写入**csv文件**（默认）
 - 写入**MySQL数据库**（可选）
 - 写入**MongoDB数据库**（可选）
-- 下载用户微博中的原始**图片**（可选）
-- 下载用户微博中的**视频**（可选）<br>
+- 下载用户**原创**微博中的原始**图片**（可选）
+- 下载用户**转发**微博中的原始**图片**（可选）
+- 下载用户**原创**微博中的**视频**（可选）
+- 下载用户**转发**微博中的**视频**（可选）<br>
 ## 输出
 **用户信息**<br>
 - 用户id：微博用户id，如"1669879400"
@@ -61,14 +63,17 @@
     "user_id_list": ["1669879400"],
     "filter": 1,
     "since_date": "1900-01-01",
-    "write_mode": ["csv", "txt"],
-    "pic_download": 1,
-    "video_download": 1
+    "write_mode": ["csv"],
+    "original_pic_download": 1,
+    "retweet_pic_download": 0,
+    "original_video_download": 1,
+    "retweet_video_download": 0
 }
 ```
 
 对于上述参数的含义以及取值范围，这里仅作简单介绍，详细信息见[程序设置](#3程序设置)。
->**user_id_list**代表我们要爬取的微博用户的user_id，可以是一个或多个，也可以是文件路径，微博用户Dear-迪丽热巴的user_id为1669879400，具体如何获取user_id见[如何获取user_id](#如何获取user_id)；<br>**filter**的值为1代表爬取全部原创微博，值为0代表爬取全部微博（原创+转发）；<br>**since_date**代表我们要爬取since_date日期之后发布的微博，因为我要爬迪丽热巴的全部原创微博，所以since_date设置了一个非常早的值；<br>**write_mode**代表结果文件的保存类型，我想要把结果写入txt文件和csv文件，所以它的值为["csv", "txt"]，如果你想写入数据库，具体设置见[设置数据库](#4设置数据库可选)；<br>**pic_download**值为1代表下载微博中的图片，值为0代表不下载；<br>**video_download**值为1代表下载微博中的视频，值为0代表不下载。<br>
+>**user_id_list**代表我们要爬取的微博用户的user_id，可以是一个或多个，也可以是文件路径，微博用户Dear-迪丽热巴的user_id为1669879400，具体如何获取user_id见[如何获取user_id](#如何获取user_id)；<br>**filter**的值为1代表爬取全部原创微博，值为0代表爬取全部微博（原创+转发）；<br>**since_date**代表我们要爬取since_date日期之后发布的微博，因为我要爬迪丽热巴的全部原创微博，所以since_date设置了一个非常早的值；<br>**write_mode**代表结果文件的保存类型，我想要把结果写入txt文件和csv文件，所以它的值为["csv", "txt"]，如果你想写入数据库，具体设置见[设置数据库](#4设置数据库可选)；<br>**original_pic_download**值为1代表下载原创微博中的图片，值为0代表不下载；<br>**retweet_pic_download**值为1代表下载转发微博中的图片，值为0代表不下载；<br>**original_video_download**值为1代表下载原创微博中的视频，值为0代表不下载；<br>**retweet_video_download**值为1代表下载转发微博中的视频，值为0代表不下载。<br>
+
 配置完成后运行程序：
 ```bash
 $ python weibo.py
@@ -108,9 +113,11 @@ $ pip install -r requirements.txt
     "user_id_list": ["1669879400"],
     "filter": 1,
     "since_date": "2018-01-01",
-    "write_mode": ["csv", "txt"],
-    "pic_download": 1,
-    "video_download": 1,
+    "write_mode": ["csv"],
+    "original_pic_download": 1,
+    "retweet_pic_download": 0,
+    "original_video_download": 1,
+    "retweet_video_download": 0,
     "mysql_config": {
         "host": "localhost",
         "port": 3306,
@@ -160,18 +167,30 @@ write_mode控制结果文件格式，取值范围是csv、txt、mongo和mysql，
 "write_mode": ["csv", "txt"],
 ```
 代表将结果信息写入csv文件和txt文件。特别注意，如果你想写入数据库，除了在write_mode添加对应数据库的名字外，还应该安装相关数据库和对应python模块，具体操作见[设置数据库](#4设置数据库可选)部分。<br>
-**设置pic_download**<br>
-pic_download控制是否下载微博中的图片，值为1代表下载，值为0代表不下载，如
+**设置original_pic_download**<br>
+original_pic_download控制是否下载**原创**微博中的图片，值为1代表下载，值为0代表不下载，如
 ```
-"pic_download": 1,
+"original_pic_download": 1,
 ```
-代表下载微博中的图片。<br>
-**设置video_download**<br>
-video_download控制是否下载微博中的视频，值为1代表下载，值为0代表不下载，如
+代表下载原创微博中的图片。<br>
+**设置retweet_pic_download**<br>
+retweet_pic_download控制是否下载**转发**微博中的图片，值为1代表下载，值为0代表不下载，如
 ```
-"video_download": 1,
+"retweet_pic_download": 0,
 ```
-代表下载微博中的视频。<br>
+代表不下载转发微博中的图片。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的图片下载。<br>
+**设置original_video_download**<br>
+original_video_download控制是否下载**原创**微博中的视频，值为1代表下载，值为0代表不下载，如
+```
+"original_video_download": 1,
+```
+代表下载原创微博中的视频。<br>
+**设置retweet_video_download**<br>
+retweet_video_download控制是否下载**转发**微博中的视频，值为1代表下载，值为0代表不下载，如
+```
+"retweet_video_download": 0,
+```
+代表不下载转发微博中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的视频下载。<br>
 **设置mysql_config（可选）**<br>
 mysql_config控制mysql参数配置。如果你不需要将结果信息写入mysql，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mysql且config.json文件中mysql_config的配置与你的mysql配置不一样，请将该值改成你自己mysql中的参数配置。
 ### 4.设置数据库（可选）
