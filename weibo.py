@@ -31,10 +31,14 @@ class Weibo(object):
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         self.write_mode = config[
             'write_mode']  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
-        self.pic_download = config[
-            'pic_download']  # 取值范围为0、1,程序默认值为0,代表不下载微博原始图片,1代表下载
-        self.video_download = config[
-            'video_download']  # 取值范围为0、1,程序默认为0,代表不下载微博视频,1代表下载
+        self.original_pic_download = config[
+            'original_pic_download']  # 取值范围为0、1, 0代表不下载原创微博图片,1代表下载
+        self.retweet_pic_download = config[
+            'retweet_pic_download']  # 取值范围为0、1, 0代表不下载转发微博图片,1代表下载
+        self.original_video_download = config[
+            'original_video_download']  # 取值范围为0、1, 0代表不下载原创微博视频,1代表下载
+        self.retweet_video_download = config[
+            'retweet_video_download']  # 取值范围为0、1, 0代表不下载转发微博视频,1代表下载
         self.mysql_config = config['mysql_config']  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
         if not isinstance(user_id_list, list):
@@ -52,8 +56,11 @@ class Weibo(object):
     def validate_config(self, config):
         """验证配置是否正确"""
 
-        # 验证filter、pic_download、video_download
-        argument_lsit = ['filter', 'pic_download', 'video_download']
+        # 验证filter、original_pic_download、retweet_pic_download、original_video_download、retweet_video_download
+        argument_lsit = [
+            'filter', 'original_pic_download', 'retweet_pic_download',
+            'original_video_download', 'retweet_video_download'
+        ]
         for argument in argument_lsit:
             if config[argument] != 0 and config[argument] != 1:
                 sys.exit(u'%s值应为0或1,请重新输入' % config[argument])
@@ -240,38 +247,51 @@ class Weibo(object):
             print('Error: ', e)
             traceback.print_exc()
 
-    def download_files(self, type):
+    def download_files(self, file_type, weibo_type):
         """下载文件(图片/视频)"""
         try:
-            if type == 'img':
+            describe = ''
+            if file_type == 'img':
                 describe = u'图片'
                 key = 'pics'
             else:
                 describe = u'视频'
                 key = 'video_url'
+            if weibo_type == 'original':
+                describe = u'原创微博' + describe
+            else:
+                describe = u'转发微博' + describe
             print(u'即将进行%s下载' % describe)
-            file_dir = self.get_filepath(type)
+            file_dir = self.get_filepath(file_type)
+            file_dir = file_dir + os.sep + describe
+            if not os.path.isdir(file_dir):
+                os.makedirs(file_dir)
             for w in tqdm(self.weibo, desc='Download progress'):
-                if w[key]:
+                if weibo_type == 'retweet':
+                    if w.get('retweet'):
+                        w = w['retweet']
+                    else:
+                        continue
+                if w.get(key):
                     file_prefix = w['created_at'][:11].replace(
                         '-', '') + '_' + str(w['id'])
-                    if type == 'img' and ',' in w[key]:
+                    if file_type == 'img' and ',' in w[key]:
                         w[key] = w[key].split(',')
                         for j, url in enumerate(w[key]):
                             file_suffix = url[url.rfind('.'):]
                             file_name = file_prefix + '_' + str(
                                 j + 1) + file_suffix
                             file_path = file_dir + os.sep + file_name
-                            self.download_one_file(url, file_path, type,
+                            self.download_one_file(url, file_path, file_type,
                                                    w['id'])
                     else:
-                        if type == 'video':
+                        if file_type == 'video':
                             file_suffix = '.mp4'
                         else:
                             file_suffix = w[key][w[key].rfind('.'):]
                         file_name = file_prefix + file_suffix
                         file_path = file_dir + os.sep + file_name
-                        self.download_one_file(w[key], file_path, type,
+                        self.download_one_file(w[key], file_path, file_type,
                                                w['id'])
             print(u'%s下载完毕,保存路径:' % describe)
             print(file_dir)
@@ -787,10 +807,15 @@ class Weibo(object):
                 self.get_pages()
                 print(u'信息抓取完毕')
                 print('*' * 100)
-                if self.pic_download == 1:
-                    self.download_files('img')
-                if self.video_download == 1:
-                    self.download_files('video')
+                if self.original_pic_download:
+                    self.download_files('img', 'original')
+                if self.original_video_download:
+                    self.download_files('video', 'original')
+                if not self.filter:
+                    if self.retweet_pic_download:
+                        self.download_files('img', 'retweet')
+                    if self.retweet_video_download:
+                        self.download_files('video', 'retweet')
         except Exception as e:
             print('Error: ', e)
             traceback.print_exc()
