@@ -76,7 +76,7 @@ class Weibo(object):
             sys.exit(u'write_mode值应为list类型')
         for mode in config['write_mode']:
             if mode not in write_mode:
-                sys.exit(u'%s为无效模式，请从txt、csv、mongo和mysql挑选一个或多个作为write_mode' %
+                sys.exit(u'%s为无效模式，请从csv、mongo和mysql中挑选一个或多个作为write_mode' %
                          mode)
 
         # 验证user_id_list
