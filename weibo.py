@@ -89,9 +89,7 @@ class Weibo(object):
                 user_id_list = os.path.split(
                     os.path.realpath(__file__))[0] + os.sep + user_id_list
             if not os.path.isfile(user_id_list):
-                sys.exit(
-                    u'当前路径：%s 不存在user_id_list.txt文件' %
-                    (os.path.split(os.path.realpath(__file__))[0] + os.sep))
+                sys.exit(u'不存在%s文件' % user_id_list)
 
     def is_date(self, since_date):
         """判断日期格式是否正确"""
