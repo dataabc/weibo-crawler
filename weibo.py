@@ -392,11 +392,11 @@ class Weibo(object):
         weibo['created_at'] = weibo_info['created_at']
         weibo['source'] = weibo_info['source']
         weibo['attitudes_count'] = self.string_to_int(
-            weibo_info['attitudes_count'])
+            weibo_info.get('attitudes_count', 0))
         weibo['comments_count'] = self.string_to_int(
-            weibo_info['comments_count'])
+            weibo_info.get('comments_count', 0))
         weibo['reposts_count'] = self.string_to_int(
-            weibo_info['reposts_count'])
+            weibo_info.get('reposts_count', 0))
         weibo['topics'] = self.get_topics(selector)
         weibo['at_users'] = self.get_at_users(selector)
         return self.standardize_info(weibo)
@@ -448,10 +448,10 @@ class Weibo(object):
             weibo_info = info['mblog']
             weibo_id = weibo_info['id']
             retweeted_status = weibo_info.get('retweeted_status')
-            is_long = weibo_info['isLongText']
+            is_long = weibo_info.get('isLongText')
             if retweeted_status:  # 转发
-                retweet_id = retweeted_status['id']
-                is_long_retweet = retweeted_status['isLongText']
+                retweet_id = retweeted_status.get('id')
+                is_long_retweet = retweeted_status.get('isLongText')
                 if is_long:
                     weibo = self.get_long_weibo(weibo_id)
                     if not weibo:
@@ -693,7 +693,7 @@ class Weibo(object):
                 connection.close()
 
     def weibo_to_mysql(self, wrote_count):
-        """将爬取的用户信息写入MySQL数据库"""
+        """将爬取的微博信息写入MySQL数据库"""
         mysql_config = {
             'host': 'localhost',
             'port': 3306,
