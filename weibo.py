@@ -224,7 +224,9 @@ class Weibo(object):
                     if not video_url:
                         video_url = media_info.get('mp4_sd_url')
                         if not video_url:
-                            video_url = ''
+                            video_url = media_info.get('stream_url_hd')
+                            if not video_url:
+                                video_url = media_info.get('stream_url', '')
         return video_url
 
     def download_one_file(self, url, file_path, type, weibo_id):
