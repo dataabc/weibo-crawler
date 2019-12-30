@@ -212,9 +212,22 @@ class Weibo(object):
             pics = ''
         return pics
 
+    def get_live_photo(self, weibo_info):
+        """获取live photo中的视频url"""
+        live_photo_list = []
+        live_photo = weibo_info.get('pic_video')
+        if live_photo:
+            prefix = 'https://video.weibo.com/media/play?livephoto=//us.sinaimg.cn/'
+            for i in live_photo.split(','):
+                if len(i.split(':')) == 2:
+                    url = prefix + i.split(':')[1] + '.mov'
+                    live_photo_list.append(url)
+            return live_photo_list
+
     def get_video_url(self, weibo_info):
         """获取微博视频url"""
         video_url = ''
+        video_url_list = []
         if weibo_info.get('page_info'):
             if weibo_info['page_info'].get('media_info'):
                 media_info = weibo_info['page_info']['media_info']
@@ -226,8 +239,13 @@ class Weibo(object):
                         if not video_url:
                             video_url = media_info.get('stream_url_hd')
                             if not video_url:
-                                video_url = media_info.get('stream_url', '')
-        return video_url
+                                video_url = media_info.get('stream_url')
+        if video_url:
+            video_url_list.append(video_url)
+        live_photo_list = self.get_live_photo(weibo_info)
+        if live_photo_list:
+            video_url_list += live_photo_list
+        return video_url_list
 
     def download_one_file(self, url, file_path, type, weibo_id):
         """下载单个文件(图片/视频)"""
@@ -246,6 +264,37 @@ class Weibo(object):
                 f.write(url.encode(sys.stdout.encoding))
             print('Error: ', e)
             traceback.print_exc()
+
+    def handle_download(self, file_type, file_dir, urls, w):
+        """处理下载相关操作"""
+        file_prefix = w['created_at'][:11].replace('-', '') + '_' + str(
+            w['id'])
+        if file_type == 'img':
+            if ',' in urls:
+                url_list = urls.split(',')
+                for i, url in enumerate(url_list):
+                    file_suffix = url[url.rfind('.'):]
+                    file_name = file_prefix + '_' + str(i + 1) + file_suffix
+                    file_path = file_dir + os.sep + file_name
+                    self.download_one_file(url, file_path, file_type, w['id'])
+            else:
+                file_suffix = urls[urls.rfind('.'):]
+                file_name = file_prefix + file_suffix
+                file_path = file_dir + os.sep + file_name
+                self.download_one_file(urls, file_path, file_type, w['id'])
+        else:
+            file_suffix = '.mp4'
+            if urls[0].endswith('.mov'):
+                file_suffix = '.mov'
+            if len(urls) > 1:
+                for i, url in enumerate(urls):
+                    file_name = file_prefix + '_' + str(i + 1) + file_suffix
+                    file_path = file_dir + os.sep + file_name
+                    self.download_one_file(url, file_path, file_type, w['id'])
+            else:
+                file_name = file_prefix + file_suffix
+                file_path = file_dir + os.sep + file_name
+                self.download_one_file(urls[0], file_path, file_type, w['id'])
 
     def download_files(self, file_type, weibo_type):
         """下载文件(图片/视频)"""
@@ -273,26 +322,7 @@ class Weibo(object):
                     else:
                         continue
                 if w.get(key):
-                    file_prefix = w['created_at'][:11].replace(
-                        '-', '') + '_' + str(w['id'])
-                    if file_type == 'img' and ',' in w[key]:
-                        w[key] = w[key].split(',')
-                        for j, url in enumerate(w[key]):
-                            file_suffix = url[url.rfind('.'):]
-                            file_name = file_prefix + '_' + str(
-                                j + 1) + file_suffix
-                            file_path = file_dir + os.sep + file_name
-                            self.download_one_file(url, file_path, file_type,
-                                                   w['id'])
-                    else:
-                        if file_type == 'video':
-                            file_suffix = '.mp4'
-                        else:
-                            file_suffix = w[key][w[key].rfind('.'):]
-                        file_name = file_prefix + file_suffix
-                        file_path = file_dir + os.sep + file_name
-                        self.download_one_file(w[key], file_path, file_type,
-                                               w['id'])
+                    self.handle_download(file_type, file_dir, w.get(key), w)
             print(u'%s下载完毕,保存路径:' % describe)
             print(file_dir)
         except Exception as e:
@@ -369,8 +399,9 @@ class Weibo(object):
     def standardize_info(self, weibo):
         """标准化信息，去除乱码"""
         for k, v in weibo.items():
-            if 'int' not in str(type(v)) and 'long' not in str(
-                    type(v)) and 'bool' not in str(type(v)):
+            if 'bool' not in str(type(v)) and 'int' not in str(
+                    type(v)) and 'list' not in str(
+                        type(v)) and 'long' not in str(type(v)):
                 weibo[k] = v.replace(u"\u200b", "").encode(
                     sys.stdout.encoding, "ignore").decode(sys.stdout.encoding)
         return weibo
