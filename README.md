@@ -19,7 +19,9 @@
 - 下载用户**原创**微博中的原始**图片**（可选）
 - 下载用户**转发**微博中的原始**图片**（可选）
 - 下载用户**原创**微博中的**视频**（可选）
-- 下载用户**转发**微博中的**视频**（可选）<br>
+- 下载用户**转发**微博中的**视频**（可选）
+- 下载用户**原创**微博**live photo**中的**视频**（可选）
+- 下载用户**转发**微博**live photo**中的**视频**（可选）<br>
 ## 输出
 **用户信息**<br>
 - 用户id：微博用户id，如"1669879400"
@@ -90,7 +92,7 @@ csv文件结果如下所示：
 <br>
 下载的视频如下所示：
 ![](https://picture.cognize.me/cognize/github/weibo-crawler/video.png)*video文件夹*<br>
-本次下载了66个视频，是她原创微博中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序将它们的微博id和视频url分别以“weibo_id:video_url”的形式写到了同文件夹下的not_downloaded.txt里。<br>
+本次下载了66个视频，是她原创微博中的视频和原创微博live photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序将它们的微博id和视频url分别以“weibo_id:video_url”的形式写到了同文件夹下的not_downloaded.txt里。<br>
 因为我本地没有安装MySQL数据库和MongoDB数据库，所以暂时设置成不写入数据库。如果你想要将爬取结果写入数据库，只需要先安装数据库（MySQL或MongoDB），再安装对应包（pymysql或pymongo），然后将mysql_write或mongodb_write值设置为1即可。写入MySQL需要用户名、密码等配置信息，这些配置如何设置见[设置数据库](#4设置数据库可选)部分。
 ## 运行环境
 - 开发语言：python2/python3
@@ -180,17 +182,17 @@ retweet_pic_download控制是否下载**转发**微博中的图片，值为1代�
 ```
 代表不下载转发微博中的图片。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的图片下载。<br>
 **设置original_video_download**<br>
-original_video_download控制是否下载**原创**微博中的视频，值为1代表下载，值为0代表不下载，如
+original_video_download控制是否下载**原创**微博中的视频和**原创**微博**live photo**中的视频，值为1代表下载，值为0代表不下载，如
 ```
 "original_video_download": 1,
 ```
-代表下载原创微博中的视频。<br>
+代表下载原创微博中的视频和原创微博live photo中的视频。<br>
 **设置retweet_video_download**<br>
-retweet_video_download控制是否下载**转发**微博中的视频，值为1代表下载，值为0代表不下载，如
+retweet_video_download控制是否下载**转发**微博中的视频和**转发**微博**live photo**中的视频，值为1代表下载，值为0代表不下载，如
 ```
 "retweet_video_download": 0,
 ```
-代表不下载转发微博中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的视频下载。<br>
+代表不下载转发微博中的视频和转发微博live photo中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的视频下载。<br>
 **设置mysql_config（可选）**<br>
 mysql_config控制mysql参数配置。如果你不需要将结果信息写入mysql，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mysql且config.json文件中mysql_config的配置与你的mysql配置不一样，请将该值改成你自己mysql中的参数配置。
 ### 4.设置数据库（可选）
