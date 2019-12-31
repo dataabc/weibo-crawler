@@ -45,7 +45,7 @@
 - 微博bid：微博的bid，与[cookie版](https://github.com/dataabc/weiboSpider)中的微博id是同一个值
 - 微博内容：微博正文
 - 原始图片url：原创微博图片和转发微博转发理由中图片的url，若某条微博存在多张图片，每个url以英文逗号分隔，若没有图片则值为''
-- 视频url: 微博中的视频url，若微博中没有视频，则值为''
+- 视频url: 微博中的视频url和Live Photo中的视频url，为列表形式，可存储多个url，若微博中没有视频，则值为[]
 - 微博发布位置：位置微博中的发布位置
 - 微博发布时间：微博发布时的时间，精确到天
 - 点赞数：微博被赞的数量
@@ -303,7 +303,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **id**：存储微博id。如wb.weibo[0]['id']为最新一条微博的id；<br>
 **text**：存储微博正文。如wb.weibo[0]['text']为最新一条微博的正文；<br>
 **pics**：存储原创微博的原始图片url。如wb.weibo[0]['pics']为最新一条微博的原始图片url，若该条微博有多张图片，则存储多个url，以英文逗号分割；若该微博没有图片，则值为''；<br>
-**video_url**：存储原创微博的视频url。如wb.weibo[0]['video_url']为最新一条微博的视频url；若该微博没有视频，则值为''；<br>
+**video_url**：存储原创微博的视频url和原创微博Live Photo中的视频url。如wb.weibo[0]['video_url']为最新一条微博的视频url列表；若该微博没有视频，则值为[]；<br>
 **location**：存储微博的发布位置。如wb.weibo[0]['location']为最新一条微博的发布位置，若该条微博没有位置信息，则值为''；<br>
 **created_at**：存储微博的发布时间。如wb.weibo[0]['created_at']为最新一条微博的发布时间；<br>
 **source**：存储微博的发布工具。如wb.weibo[0]['source']为最新一条微博的发布工具；<br>
@@ -323,7 +323,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **id**：存储原始微博id。wb.weibo[i-1]['retweet']['id']为该原始微博的id；<br>
 **text**：存储原始微博正文。wb.weibo[i-1]['retweet']['text']为该原始微博的正文；<br>
 **pics**：存储原始微博的原始图片url。wb.weibo[i-1]['retweet']['pics']为该原始微博的原始图片url，若该原始微博有多张图片，则存储多个url，以英文逗号分割；若该原始微博没有图片，则值为''；<br>
-**video_url**：存储原始微博的视频url。如wb.weibo[i-1]['retweet']['video_url']为该原始微博的视频url；若该微博没有视频，则值为''；<br>
+**video_url**：存储原始微博的视频url和原始微博Live Photo中的视频url。如wb.weibo[i-1]['retweet']['video_url']为该原始微博的视频url列表；若该微博没有视频，则值为[]；<br>
 **location**：存储原始微博的发布位置。wb.weibo[i-1]['retweet']['location']为该原始微博的发布位置，若该原始微博没有位置信息，则值为''；<br>
 **created_at**：存储原始微博的发布时间。wb.weibo[i-1]['retweet']['created_at']为该原始微博的发布时间；<br>
 **source**：存储原始微博的发布工具。wb.weibo[i-1]['retweet']['source']为该原始微博的发布工具；<br>
