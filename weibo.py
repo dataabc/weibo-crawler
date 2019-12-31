@@ -245,7 +245,7 @@ class Weibo(object):
         live_photo_list = self.get_live_photo(weibo_info)
         if live_photo_list:
             video_url_list += live_photo_list
-        return video_url_list
+        return ';'.join(video_url_list)
 
     def download_one_file(self, url, file_path, type, weibo_id):
         """下载单个文件(图片/视频)"""
@@ -284,17 +284,20 @@ class Weibo(object):
                 self.download_one_file(urls, file_path, file_type, w['id'])
         else:
             file_suffix = '.mp4'
-            if urls[0].endswith('.mov'):
-                file_suffix = '.mov'
-            if len(urls) > 1:
-                for i, url in enumerate(urls):
+            if ';' in urls:
+                url_list = urls.split(';')
+                if url_list[0].endswith('.mov'):
+                    file_suffix = '.mov'
+                for i, url in enumerate(url_list):
                     file_name = file_prefix + '_' + str(i + 1) + file_suffix
                     file_path = file_dir + os.sep + file_name
                     self.download_one_file(url, file_path, file_type, w['id'])
             else:
+                if urls.endswith('.mov'):
+                    file_suffix = '.mov'
                 file_name = file_prefix + file_suffix
                 file_path = file_dir + os.sep + file_name
-                self.download_one_file(urls[0], file_path, file_type, w['id'])
+                self.download_one_file(urls, file_path, file_type, w['id'])
 
     def download_files(self, file_type, weibo_type):
         """下载文件(图片/视频)"""
@@ -745,7 +748,7 @@ class Weibo(object):
                 topics varchar(200),
                 at_users varchar(200),
                 pics varchar(1000),
-                video_url varchar(300),
+                video_url varchar(1000),
                 location varchar(100),
                 created_at DATETIME,
                 source varchar(30),
