@@ -10,6 +10,9 @@
   * [运行脚本](#5运行脚本)
   * [按需求修改脚本（可选）](#6按需求修改脚本可选)
 * [如何获取user_id](#如何获取user_id)
+* [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
+* [如何获取cookie（可选）](#如何获取cookie可选)
+* [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
 
 ## 功能
 连续爬取**一个**或**多个**新浪微博用户（如[Dear-迪丽热巴](https://weibo.cn/u/1669879400)、[郭碧婷](https://weibo.cn/u/1729370543)）的数据，并将结果信息写入文件。写入信息几乎包括了用户微博的所有数据，主要有**用户信息**和**微博信息**两大类，前者包含用户昵称、关注数、粉丝数、微博数等等；后者包含微博正文、发布时间、发布工具、评论数等等，因为内容太多，这里不再赘述，详细内容见[输出](#输出)部分。具体的写入文件类型如下：
@@ -69,12 +72,13 @@
     "original_pic_download": 1,
     "retweet_pic_download": 0,
     "original_video_download": 1,
-    "retweet_video_download": 0
+    "retweet_video_download": 0,
+    "cookie": "your cookie"
 }
 ```
 
 对于上述参数的含义以及取值范围，这里仅作简单介绍，详细信息见[程序设置](#3程序设置)。
->**user_id_list**代表我们要爬取的微博用户的user_id，可以是一个或多个，也可以是文件路径，微博用户Dear-迪丽热巴的user_id为1669879400，具体如何获取user_id见[如何获取user_id](#如何获取user_id)；<br>**filter**的值为1代表爬取全部原创微博，值为0代表爬取全部微博（原创+转发）；<br>**since_date**代表我们要爬取since_date日期之后发布的微博，因为我要爬迪丽热巴的全部原创微博，所以since_date设置了一个非常早的值；<br>**write_mode**代表结果文件的保存类型，我想要把结果写入txt文件和csv文件，所以它的值为["csv", "txt"]，如果你想写入数据库，具体设置见[设置数据库](#4设置数据库可选)；<br>**original_pic_download**值为1代表下载原创微博中的图片，值为0代表不下载；<br>**retweet_pic_download**值为1代表下载转发微博中的图片，值为0代表不下载；<br>**original_video_download**值为1代表下载原创微博中的视频，值为0代表不下载；<br>**retweet_video_download**值为1代表下载转发微博中的视频，值为0代表不下载。<br>
+>**user_id_list**代表我们要爬取的微博用户的user_id，可以是一个或多个，也可以是文件路径，微博用户Dear-迪丽热巴的user_id为1669879400，具体如何获取user_id见[如何获取user_id](#如何获取user_id)；<br>**filter**的值为1代表爬取全部原创微博，值为0代表爬取全部微博（原创+转发）；<br>**since_date**代表我们要爬取since_date日期之后发布的微博，因为我要爬迪丽热巴的全部原创微博，所以since_date设置了一个非常早的值；<br>**write_mode**代表结果文件的保存类型，我想要把结果写入txt文件和csv文件，所以它的值为["csv", "txt"]，如果你想写入数据库，具体设置见[设置数据库](#4设置数据库可选)；<br>**original_pic_download**值为1代表下载原创微博中的图片，值为0代表不下载；<br>**retweet_pic_download**值为1代表下载转发微博中的图片，值为0代表不下载；<br>**original_video_download**值为1代表下载原创微博中的视频，值为0代表不下载；<br>**retweet_video_download**值为1代表下载转发微博中的视频，值为0代表不下载；<br>**cookie**是可选参数，可填可不填，具体区别见[添加cookie与不添加cookie的区别](#添加cookie与不添加cookie的区别可选)。
 
 配置完成后运行程序：
 ```bash
@@ -193,6 +197,12 @@ retweet_video_download控制是否下载**转发**微博中的视频和**转发*
 "retweet_video_download": 0,
 ```
 代表不下载转发微博中的视频和转发微博Live Photo中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的视频下载。<br>
+**设置cookie（可选）**<br>
+cookie为可选参数，即可填可不填，具体区别见[添加cookie与不添加cookie的区别](#添加cookie与不添加cookie的区别可选)。cookie默认配置如下：
+```
+"cookie": "your cookie"
+```
+如果想要设置cookie，可以按照[如何获取cookie](#如何获取cookie可选)中的方法，获取cookie，并将上面的"your cookie"替换成真实的cookie即可。<br>
 **设置mysql_config（可选）**<br>
 mysql_config控制mysql参数配置。如果你不需要将结果信息写入mysql，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mysql且config.json文件中mysql_config的配置与你的mysql配置不一样，请将该值改成你自己mysql中的参数配置。
 ### 4.设置数据库（可选）
@@ -344,3 +354,26 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 ![](https://picture.cognize.me/cognize/github/weibospider/user_info.png)
 如上图所示，迪丽热巴微博资料页的地址为"<https://weibo.cn/1669879400/info>"，其中的"1669879400"即为此微博的user_id。<br>
 事实上，此微博的user_id也包含在用户主页(<https://weibo.cn/u/1669879400?f=search_0>)中，之所以我们还要点击主页中的"资料"来获取user_id，是因为很多用户的主页不是"<https://weibo.cn/user_id?f=search_0>"的形式，而是"<https://weibo.cn/个性域名?f=search_0>"或"<https://weibo.cn/微号?f=search_0>"的形式。其中"微号"和user_id都是一串数字，如果仅仅通过主页地址提取user_id，很容易将"微号"误认为user_id。
+
+## 添加cookie与不添加cookie的区别（可选）
+对于大部分微博用户，不添加cookie也可以获取其用户信息和大部分微博，不同的微博获取比例不同。以2020年1月2日迪丽热巴的微博为例，此时她共有1085条微博，在不添加cookie的情况下，可以获取到1026条微博，大约占全部微博的94.56%，而在添加cookie后，可以获取全部微博。其他用户类似，大部分都可以在不添加cookie的情况下获取到90%以上的微博，在添加cookie后可以获取全部微博。具体原因是，大部分微博内容都可以在[移动版](https://m.weibo.cn/)匿名获取，少量微博需要用户登录才可以获取，所以这部分微博在不添加cookie时是无法获取的。
+有少部分微博用户，不添加cookie可以获取其微博，无法获取其用户信息。对于这种情况，要想获取其用户信息，是需要cookie的。
+
+## 如何获取cookie（可选）
+1.用Chrome打开<https://passport.weibo.cn/signin/login>；<br>
+2.输入微博的用户名、密码，登录，如图所示：
+![](https://picture.cognize.me/cognize/github/weibospider/cookie1.png)
+登录成功后会跳转到<https://m.weibo.cn>;<br>
+3.按F12键打开Chrome开发者工具，在地址栏输入并跳转到<https://weibo.cn>，跳转后会显示如下类似界面:
+![](https://picture.cognize.me/cognize/github/weibospider/cookie2.png)
+4.依此点击Chrome开发者工具中的Network->Name中的weibo.cn->Headers->Request Headers，"Cookie:"后的值即为我们要找的cookie值，复制即可，如图所示：
+![](https://picture.cognize.me/cognize/github/weibospider/cookie3.png)
+
+## 如何检测cookie是否有效（可选）
+因为对于大部分微博用户，本程序添不添加cookie，cookie正确与否都可以运行并获取微博信息，所以使用者很难通过观察检测cookie是否有效。目前有两种方式检测cookie值是否有效，大家从下面两种方法中选择一种就可以：<br>
+1.爬取特定用户，将user_id设置为2218081121，即
+```
+"user_id_list": ["2218081121"],
+```
+运行程序，如果程序提示cookie无效等类似信息，说明cookie无效，否则cookie是有效的；<br>
+2.将获取的cookie填到[cookie版](https://github.com/dataabc/weiboSpider)的config.json中，运行程序。如果程序提示cookie无效等相关信息，说明cookie无效，否则cookie是有效的。因为cookie版中cookie为必需项，且**cookie版与免cookie版的cookie通用**。
