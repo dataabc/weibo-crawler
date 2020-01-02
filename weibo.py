@@ -229,7 +229,8 @@ class Weibo(object):
         video_url = ''
         video_url_list = []
         if weibo_info.get('page_info'):
-            if weibo_info['page_info'].get('media_info'):
+            if weibo_info['page_info'].get('media_info') and weibo_info[
+                    'page_info'].get('type') == 'video':
                 media_info = weibo_info['page_info']['media_info']
                 video_url = media_info.get('mp4_720p_mp4')
                 if not video_url:
