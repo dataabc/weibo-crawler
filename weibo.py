@@ -39,6 +39,7 @@ class Weibo(object):
             'original_video_download']  # 取值范围为0、1, 0代表不下载原创微博视频,1代表下载
         self.retweet_video_download = config[
             'retweet_video_download']  # 取值范围为0、1, 0代表不下载转发微博视频,1代表下载
+        self.cookie = {'Cookie': config['cookie']}
         self.mysql_config = config['mysql_config']  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
         if not isinstance(user_id_list, list):
@@ -102,7 +103,7 @@ class Weibo(object):
     def get_json(self, params):
         """获取网页中json数据"""
         url = 'https://m.weibo.cn/api/container/getIndex?'
-        r = requests.get(url, params=params)
+        r = requests.get(url, params=params, cookies=self.cookie)
         return r.json()
 
     def get_weibo_json(self, page):
@@ -191,7 +192,7 @@ class Weibo(object):
     def get_long_weibo(self, id):
         """获取长微博"""
         url = 'https://m.weibo.cn/detail/%s' % id
-        html = requests.get(url).text
+        html = requests.get(url, cookies=self.cookie).text
         html = html[html.find('"status":'):]
         html = html[:html.rfind('"hotScheme"')]
         html = html[:html.rfind(',')]
@@ -254,7 +255,7 @@ class Weibo(object):
             if not os.path.isfile(file_path):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
-                downloaded = s.get(url, timeout=(5, 10))
+                downloaded = s.get(url, cookies=self.cookie, timeout=(5, 10))
                 with open(file_path, 'wb') as f:
                     f.write(downloaded.content)
         except Exception as e:
@@ -560,9 +561,12 @@ class Weibo(object):
 
     def get_page_count(self):
         """获取微博页数"""
-        weibo_count = self.user['statuses_count']
-        page_count = int(math.ceil(weibo_count / 10.0))
-        return page_count
+        try:
+            weibo_count = self.user['statuses_count']
+            page_count = int(math.ceil(weibo_count / 10.0))
+            return page_count
+        except KeyError:
+            sys.exit(u'此用户微博可能需要cookie才能爬取')
 
     def get_write_info(self, wrote_count):
         """获取要写入的微博信息"""
