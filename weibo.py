@@ -566,7 +566,9 @@ class Weibo(object):
             page_count = int(math.ceil(weibo_count / 10.0))
             return page_count
         except KeyError:
-            sys.exit(u'此用户微博可能需要cookie才能爬取')
+            sys.exit(u'此用户微博可能需要设置cookie才能爬取，请按照'
+                     u'”https://github.com/dataabc/weibo-crawler#3程序设置“'
+                     u'中的“设置cookie”部分设置cookie信息')
 
     def get_write_info(self, wrote_count):
         """获取要写入的微博信息"""
