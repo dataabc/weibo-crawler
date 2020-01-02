@@ -39,7 +39,7 @@ class Weibo(object):
             'original_video_download']  # 取值范围为0、1, 0代表不下载原创微博视频,1代表下载
         self.retweet_video_download = config[
             'retweet_video_download']  # 取值范围为0、1, 0代表不下载转发微博视频,1代表下载
-        self.cookie = {'Cookie': config['cookie']}
+        self.cookie = {'Cookie': config.get('cookie')}  # 微博cookie，可填可不填
         self.mysql_config = config['mysql_config']  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
         if not isinstance(user_id_list, list):
@@ -566,7 +566,9 @@ class Weibo(object):
             page_count = int(math.ceil(weibo_count / 10.0))
             return page_count
         except KeyError:
-            sys.exit(u'此用户微博可能需要cookie才能爬取')
+            sys.exit(u'此用户微博可能需要设置cookie才能爬取，请按照'
+                     u'”https://github.com/dataabc/weibo-crawler#3程序设置“'
+                     u'中的“设置cookie”部分设置cookie信息')
 
     def get_write_info(self, wrote_count):
         """获取要写入的微博信息"""
