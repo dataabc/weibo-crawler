@@ -566,8 +566,15 @@ class Weibo(object):
             page_count = int(math.ceil(weibo_count / 10.0))
             return page_count
         except KeyError:
-            sys.exit(u'此用户微博可能需要设置cookie才能爬取，请按照'
-                     u'”https://github.com/dataabc/weibo-crawler#3程序设置“'
+            sys.exit(u'程序出错，错误原因可能为以下两者：\n'
+                     u'1.user_id不正确；\n'
+                     u'2.此用户微博可能需要设置cookie才能爬取。\n'
+                     u'解决方案：\n'
+                     u'请参考\n'
+                     u'https://github.com/dataabc/weibo-crawler#如何获取user_id\n'
+                     u'获取正确的user_id；\n'
+                     u'或者参考\n'
+                     u'https://github.com/dataabc/weibo-crawler#3程序设置\n'
                      u'中的“设置cookie”部分设置cookie信息')
 
     def get_write_info(self, wrote_count):
