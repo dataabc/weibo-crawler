@@ -72,13 +72,14 @@ class Weibo(object):
             sys.exit(u'since_date值应为yyyy-mm-dd形式或整数,请重新输入')
 
         # 验证write_mode
-        write_mode = ['csv', 'mongo', 'mysql']
+        write_mode = ['csv', 'json', 'mongo', 'mysql']
         if not isinstance(config['write_mode'], list):
             sys.exit(u'write_mode值应为list类型')
         for mode in config['write_mode']:
             if mode not in write_mode:
-                sys.exit(u'%s为无效模式，请从csv、mongo和mysql中挑选一个或多个作为write_mode' %
-                         mode)
+                sys.exit(
+                    u'%s为无效模式，请从csv、json、mongo和mysql中挑选一个或多个作为write_mode' %
+                    mode)
 
         # 验证user_id_list
         user_id_list = config['user_id_list']
@@ -653,6 +654,30 @@ class Weibo(object):
         print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
         print(self.get_filepath('csv'))
 
+    def write_json(self, wrote_count):
+        """将爬到的信息写入json文件"""
+        data = {}
+        path = self.get_filepath('json')
+        if os.path.isfile(path):
+            with codecs.open(path, 'r', encoding="utf-8") as f:
+                data = json.load(f)
+        data['user'] = self.user
+        weibo_info = self.weibo[wrote_count:]
+        if data.get('weibo'):
+            for new in weibo_info:
+                flag = 1
+                for i, old in enumerate(data['weibo']):
+                    if new['id'] == old['id']:
+                        data['weibo'][i] = new
+                        flag = 0
+                        break
+                if flag:
+                    data['weibo'].append(new)
+        else:
+            data['weibo'] = weibo_info
+        with codecs.open(path, 'w', encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+
     def info_to_mongodb(self, collection, info_list):
         """将爬取的信息写入MongoDB数据库"""
         try:
@@ -794,6 +819,8 @@ class Weibo(object):
         if self.got_count > wrote_count:
             if 'csv' in self.write_mode:
                 self.write_csv(wrote_count)
+            if 'json' in self.write_mode:
+                self.write_json(wrote_count)
             if 'mysql' in self.write_mode:
                 self.weibo_to_mysql(wrote_count)
             if 'mongo' in self.write_mode:
