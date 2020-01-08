@@ -555,7 +555,7 @@ class Weibo(object):
                                     'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
                                 self.weibo_id_list.append(wb['id'])
-                                self.got_count = self.got_count + 1
+                                self.got_count += 1
                                 self.print_weibo(wb)
         except Exception as e:
             print("Error: ", e)
@@ -655,6 +655,31 @@ class Weibo(object):
         print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
         print(self.get_filepath('csv'))
 
+    def update_json_data(self, data, weibo_info):
+        """更新要写入json结果文件中的数据，已经存在于json中的信息更新为最新值，不存在的信息添加到data中"""
+        data['user'] = self.user
+        if data.get('weibo'):
+            is_new = 1  # 待写入微博是否全部为新微博，即待写入微博与json中的数据不重复
+            for old in data['weibo']:
+                if weibo_info[-1]['id'] == old['id']:
+                    is_new = 0
+                    break
+            if is_new == 0:
+                for new in weibo_info:
+                    flag = 1
+                    for i, old in enumerate(data['weibo']):
+                        if new['id'] == old['id']:
+                            data['weibo'][i] = new
+                            flag = 0
+                            break
+                    if flag:
+                        data['weibo'].append(new)
+            else:
+                data['weibo'] += weibo_info
+        else:
+            data['weibo'] = weibo_info
+        return data
+
     def write_json(self, wrote_count):
         """将爬到的信息写入json文件"""
         data = {}
@@ -662,22 +687,12 @@ class Weibo(object):
         if os.path.isfile(path):
             with codecs.open(path, 'r', encoding="utf-8") as f:
                 data = json.load(f)
-        data['user'] = self.user
         weibo_info = self.weibo[wrote_count:]
-        if data.get('weibo'):
-            for new in weibo_info:
-                flag = 1
-                for i, old in enumerate(data['weibo']):
-                    if new['id'] == old['id']:
-                        data['weibo'][i] = new
-                        flag = 0
-                        break
-                if flag:
-                    data['weibo'].append(new)
-        else:
-            data['weibo'] = weibo_info
+        data = self.update_json_data(data, weibo_info)
         with codecs.open(path, 'w', encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
+        print(u'%d条微博写入json文件完毕,保存路径:' % self.got_count)
+        print(path)
 
     def info_to_mongodb(self, collection, info_list):
         """将爬取的信息写入MongoDB数据库"""
