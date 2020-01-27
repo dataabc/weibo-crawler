@@ -853,8 +853,12 @@ class Weibo(object):
     def update_user_config_file(self, user_config_file_path):
         """更新用户配置文件"""
         with open(user_config_file_path, 'rb') as f:
-            lines = f.read().splitlines()
-            lines = [line.decode('utf-8') for line in lines]
+            try:
+                lines = f.read().splitlines()
+                lines = [line.decode('utf-8') for line in lines]
+            except UnicodeDecodeError:
+                sys.exit(u'%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序' %
+                         user_config_file_path)
             for i, line in enumerate(lines):
                 info = line.split(' ')
                 if len(info) > 0 and info[0].isdigit():
