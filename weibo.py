@@ -855,7 +855,7 @@ class Weibo(object):
         with open(user_config_file_path, 'rb') as f:
             try:
                 lines = f.read().splitlines()
-                lines = [line.decode('utf-8') for line in lines]
+                lines = [line.decode('utf-8-sig') for line in lines]
             except UnicodeDecodeError:
                 sys.exit(u'%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序' %
                          user_config_file_path)
@@ -921,7 +921,7 @@ class Weibo(object):
         """获取文件中的微博id信息"""
         with open(file_path, 'rb') as f:
             lines = f.read().splitlines()
-            lines = [line.decode('utf-8') for line in lines]
+            lines = [line.decode('utf-8-sig') for line in lines]
             user_config_list = []
             for line in lines:
                 info = line.split(' ')
