@@ -481,6 +481,7 @@ class Weibo(object):
         print(u'转发数：%d' % weibo['reposts_count'])
         print(u'话题：%s' % weibo['topics'])
         print(u'@用户：%s' % weibo['at_users'])
+        print(u'url：https://m.weibo.cn/detail/%d' % weibo['id'])
 
     def print_weibo(self, weibo):
         """打印微博，若为转发微博，会同时打印原创和转发部分"""
