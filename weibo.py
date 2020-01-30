@@ -463,6 +463,7 @@ class Weibo(object):
         print(u'微博数：%d' % self.user['statuses_count'])
         print(u'粉丝数：%d' % self.user['followers_count'])
         print(u'关注数：%d' % self.user['follow_count'])
+        print(u'url：https://m.weibo.cn/profile/%s' % self.user['id'])
         if self.user.get('verified_reason'):
             print(self.user['verified_reason'])
         print(self.user['description'])
