@@ -563,6 +563,9 @@ class Weibo(object):
                                 if self.is_pinned_weibo(w):
                                     continue
                                 else:
+                                    print(u'{}已获取{}({})的第{}页微博{}'.format(
+                                        '-' * 30, self.user['screen_name'],
+                                        self.user['id'], page, '-' * 30))
                                     return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
@@ -570,6 +573,10 @@ class Weibo(object):
                                 self.weibo_id_list.append(wb['id'])
                                 self.got_count += 1
                                 self.print_weibo(wb)
+            print(u'{}已获取{}({})的第{}页微博{}'.format('-' * 30,
+                                                 self.user['screen_name'],
+                                                 self.user['id'], page,
+                                                 '-' * 30))
         except Exception as e:
             print("Error: ", e)
             traceback.print_exc()
@@ -899,7 +906,6 @@ class Weibo(object):
         random_pages = random.randint(1, 5)
         self.start_date = datetime.now().strftime('%Y-%m-%d')
         for page in tqdm(range(1, page_count + 1), desc='Progress'):
-            print(u'第%d页' % page)
             is_end = self.get_one_page(page)
             if is_end:
                 break
