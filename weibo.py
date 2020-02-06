@@ -204,17 +204,19 @@ class Weibo(object):
 
     def get_long_weibo(self, id):
         """获取长微博"""
-        url = 'https://m.weibo.cn/detail/%s' % id
-        html = requests.get(url, cookies=self.cookie).text
-        html = html[html.find('"status":'):]
-        html = html[:html.rfind('"hotScheme"')]
-        html = html[:html.rfind(',')]
-        html = '{' + html + '}'
-        js = json.loads(html, strict=False)
-        weibo_info = js.get('status')
-        if weibo_info:
-            weibo = self.parse_weibo(weibo_info)
-            return weibo
+        for i in range(5):
+            url = 'https://m.weibo.cn/detail/%s' % id
+            html = requests.get(url, cookies=self.cookie).text
+            html = html[html.find('"status":'):]
+            html = html[:html.rfind('"hotScheme"')]
+            html = html[:html.rfind(',')]
+            html = '{' + html + '}'
+            js = json.loads(html, strict=False)
+            weibo_info = js.get('status')
+            if weibo_info:
+                weibo = self.parse_weibo(weibo_info)
+                return weibo
+            sleep(random.randint(6, 10))
 
     def get_pics(self, weibo_info):
         """获取微博原始图片url"""
