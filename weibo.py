@@ -829,7 +829,7 @@ class Weibo(object):
                 text varchar(2000),
                 topics varchar(200),
                 at_users varchar(200),
-                pics varchar(1000),
+                pics varchar(3000),
                 video_url varchar(1000),
                 location varchar(100),
                 created_at DATETIME,
