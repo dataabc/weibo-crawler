@@ -939,8 +939,11 @@ class Weibo(object):
     def get_user_config_list(self, file_path):
         """获取文件中的微博id信息"""
         with open(file_path, 'rb') as f:
-            lines = f.read().splitlines()
-            lines = [line.decode('utf-8-sig') for line in lines]
+            try:
+                lines = f.read().splitlines()
+                lines = [line.decode('utf-8-sig') for line in lines]
+            except UnicodeDecodeError:
+                sys.exit(u'%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序' % file_path)
             user_config_list = []
             for line in lines:
                 info = line.split(' ')
