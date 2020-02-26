@@ -875,7 +875,7 @@ class Weibo(object):
                 if len(info) > 0 and info[0].isdigit():
                     if self.user_config['user_id'] == info[0]:
                         if len(info) == 1:
-                            info.append(self.user['nickname'])
+                            info.append(self.user['screen_name'])
                             info.append(self.start_date)
                         if len(info) == 2:
                             info.append(self.start_date)
