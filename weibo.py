@@ -910,30 +910,34 @@ class Weibo(object):
     def get_pages(self):
         """获取全部微博"""
         self.get_user_info()
-        page_count = self.get_page_count()
-        wrote_count = 0
         self.print_user_info()
-        page1 = 0
-        random_pages = random.randint(1, 5)
-        self.start_date = datetime.now().strftime('%Y-%m-%d')
-        for page in tqdm(range(1, page_count + 1), desc='Progress'):
-            is_end = self.get_one_page(page)
-            if is_end:
-                break
+        since_date = datetime.strptime(self.user_config['since_date'],
+                                       '%Y-%m-%d')
+        today = datetime.strptime(str(date.today()), '%Y-%m-%d')
+        if since_date <= today:
+            page_count = self.get_page_count()
+            wrote_count = 0
+            page1 = 0
+            random_pages = random.randint(1, 5)
+            self.start_date = datetime.now().strftime('%Y-%m-%d')
+            for page in tqdm(range(1, page_count + 1), desc='Progress'):
+                is_end = self.get_one_page(page)
+                if is_end:
+                    break
 
-            if page % 20 == 0:  # 每爬20页写入一次文件
-                self.write_data(wrote_count)
-                wrote_count = self.got_count
+                if page % 20 == 0:  # 每爬20页写入一次文件
+                    self.write_data(wrote_count)
+                    wrote_count = self.got_count
 
-            # 通过加入随机等待避免被限制。爬虫速度过快容易被系统限制(一段时间后限
-            # 制会自动解除)，加入随机等待模拟人的操作，可降低被系统限制的风险。默
-            # 认是每爬取1到5页随机等待6到10秒，如果仍然被限，可适当增加sleep时间
-            if (page - page1) % random_pages == 0 and page < page_count:
-                sleep(random.randint(6, 10))
-                page1 = page
-                random_pages = random.randint(1, 5)
+                # 通过加入随机等待避免被限制。爬虫速度过快容易被系统限制(一段时间后限
+                # 制会自动解除)，加入随机等待模拟人的操作，可降低被系统限制的风险。默
+                # 认是每爬取1到5页随机等待6到10秒，如果仍然被限，可适当增加sleep时间
+                if (page - page1) % random_pages == 0 and page < page_count:
+                    sleep(random.randint(6, 10))
+                    page1 = page
+                    random_pages = random.randint(1, 5)
 
-        self.write_data(wrote_count)  # 将剩余不足20页的微博写入文件
+            self.write_data(wrote_count)  # 将剩余不足20页的微博写入文件
         print(u'微博爬取完成，共爬取%d条微博' % self.got_count)
 
     def get_user_config_list(self, file_path):
