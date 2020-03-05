@@ -153,6 +153,12 @@ class Weibo(object):
                 statuses_count INT,
                 followers_count INT,
                 follow_count INT,
+                registration_time varchar(20),
+                sunshine varchar(20),
+                birthday varchar(40),
+                location varchar(200),
+                university varchar(200),
+                company varchar(200),
                 description varchar(140),
                 profile_url varchar(200),
                 profile_image_url varchar(200),
@@ -197,6 +203,26 @@ class Weibo(object):
             user_info['verified'] = info.get('verified', False)
             user_info['verified_type'] = info.get('verified_type', 0)
             user_info['verified_reason'] = info.get('verified_reason', '')
+            params = {
+                'containerid':
+                '230283' + str(self.user_config['user_id']) + '_-_INFO'
+            }
+            zh_list = [u'注册时间', u'阳光信用', u'生日', u'所在地', u'大学', u'公司']
+            en_list = [
+                'registration_time', 'sunshine', 'birthday', 'location',
+                'university', 'company'
+            ]
+            for i in en_list:
+                user_info[i] = ''
+            js = self.get_json(params)
+            if js['ok']:
+                cards = js['data']['cards']
+                card_list = cards[0]['card_group'] + cards[1]['card_group']
+                for card in card_list:
+                    if card.get('item_name') in zh_list:
+                        user_info[en_list[zh_list.index(
+                            card.get('item_name'))]] = card.get(
+                                'item_content', '')
             user = self.standardize_info(user_info)
             self.user = user
             self.user_to_database()
