@@ -157,7 +157,7 @@ class Weibo(object):
                 sunshine varchar(20),
                 birthday varchar(40),
                 location varchar(200),
-                university varchar(200),
+                education varchar(200),
                 company varchar(200),
                 description varchar(140),
                 profile_url varchar(200),
@@ -207,10 +207,13 @@ class Weibo(object):
                 'containerid':
                 '230283' + str(self.user_config['user_id']) + '_-_INFO'
             }
-            zh_list = [u'注册时间', u'阳光信用', u'生日', u'所在地', u'大学', u'公司']
+            zh_list = [
+                u'注册时间', u'阳光信用', u'生日', u'所在地', u'小学', u'初中', u'高中', u'大学',
+                u'公司'
+            ]
             en_list = [
                 'registration_time', 'sunshine', 'birthday', 'location',
-                'university', 'company'
+                'education', 'education', 'education', 'education', 'company'
             ]
             for i in en_list:
                 user_info[i] = ''
