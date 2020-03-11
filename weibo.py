@@ -67,11 +67,11 @@ class Weibo(object):
         """验证配置是否正确"""
 
         # 验证filter、original_pic_download、retweet_pic_download、original_video_download、retweet_video_download
-        argument_lsit = [
+        argument_list = [
             'filter', 'original_pic_download', 'retweet_pic_download',
             'original_video_download', 'retweet_video_download'
         ]
-        for argument in argument_lsit:
+        for argument in argument_list:
             if config[argument] != 0 and config[argument] != 1:
                 sys.exit(u'%s值应为0或1,请重新输入' % config[argument])
 
@@ -220,12 +220,13 @@ class Weibo(object):
             js = self.get_json(params)
             if js['ok']:
                 cards = js['data']['cards']
-                card_list = cards[0]['card_group'] + cards[1]['card_group']
-                for card in card_list:
-                    if card.get('item_name') in zh_list:
-                        user_info[en_list[zh_list.index(
-                            card.get('item_name'))]] = card.get(
-                                'item_content', '')
+                if isinstance(cards, list) and len(cards) > 1:
+                    card_list = cards[0]['card_group'] + cards[1]['card_group']
+                    for card in card_list:
+                        if card.get('item_name') in zh_list:
+                            user_info[en_list[zh_list.index(
+                                card.get('item_name'))]] = card.get(
+                                    'item_content', '')
             user = self.standardize_info(user_info)
             self.user = user
             self.user_to_database()
