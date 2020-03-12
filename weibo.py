@@ -492,6 +492,12 @@ class Weibo(object):
         print(u'用户昵称：%s' % self.user['screen_name'])
         gender = u'女' if self.user['gender'] == 'f' else u'男'
         print(u'性别：%s' % gender)
+        print(u'生日：%s' % self.user['birthday'])
+        print(u'所在地：%s' % self.user['location'])
+        print(u'教育经历：%s' % self.user['education'])
+        print(u'公司：%s' % self.user['company'])
+        print(u'阳光信用：%s' % self.user['sunshine'])
+        print(u'注册时间：%s' % self.user['registration_time'])
         print(u'微博数：%d' % self.user['statuses_count'])
         print(u'粉丝数：%d' % self.user['followers_count'])
         print(u'关注数：%d' % self.user['follow_count'])
