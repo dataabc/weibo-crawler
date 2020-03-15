@@ -528,18 +528,21 @@ class Weibo(object):
 
     def print_one_weibo(self, weibo):
         """打印一条微博"""
-        print(u'微博id：%d' % weibo['id'])
-        print(u'微博正文：%s' % weibo['text'])
-        print(u'原始图片url：%s' % weibo['pics'])
-        print(u'微博位置：%s' % weibo['location'])
-        print(u'发布时间：%s' % weibo['created_at'])
-        print(u'发布工具：%s' % weibo['source'])
-        print(u'点赞数：%d' % weibo['attitudes_count'])
-        print(u'评论数：%d' % weibo['comments_count'])
-        print(u'转发数：%d' % weibo['reposts_count'])
-        print(u'话题：%s' % weibo['topics'])
-        print(u'@用户：%s' % weibo['at_users'])
-        print(u'url：https://m.weibo.cn/detail/%d' % weibo['id'])
+        try:
+            print(u'微博id：%d' % weibo['id'])
+            print(u'微博正文：%s' % weibo['text'])
+            print(u'原始图片url：%s' % weibo['pics'])
+            print(u'微博位置：%s' % weibo['location'])
+            print(u'发布时间：%s' % weibo['created_at'])
+            print(u'发布工具：%s' % weibo['source'])
+            print(u'点赞数：%d' % weibo['attitudes_count'])
+            print(u'评论数：%d' % weibo['comments_count'])
+            print(u'转发数：%d' % weibo['reposts_count'])
+            print(u'话题：%s' % weibo['topics'])
+            print(u'@用户：%s' % weibo['at_users'])
+            print(u'url：https://m.weibo.cn/detail/%d' % weibo['id'])
+        except OSError:
+            pass
 
     def print_weibo(self, weibo):
         """打印微博，若为转发微博，会同时打印原创和转发部分"""
