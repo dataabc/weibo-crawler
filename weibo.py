@@ -125,6 +125,24 @@ class Weibo(object):
         js = self.get_json(params)
         return js
 
+    def user_to_csv(self):
+        """将爬取到的用户信息写入csv文件"""
+        file_dir = os.path.split(
+            os.path.realpath(__file__))[0] + os.sep + 'weibo'
+        if not os.path.isdir(file_dir):
+            os.makedirs(file_dir)
+        file_path = file_dir + os.sep + 'users.csv'
+        result_headers = [
+            '用户id', '昵称', '性别', '生日', '所在地', '学习经历', '公司', '注册时间', '阳光信用',
+            '微博数', '粉丝数', '关注数', '简介', '主页', '头像', '高清头像', '微博等级', '会员等级',
+            '是否认证', '认证类型', '认证信息'
+        ]
+        result_data = [[
+            v.encode('utf-8') if 'unicode' in str(type(v)) else v
+            for v in self.user.values()
+        ]]
+        self.csv_helper(result_headers, result_data, file_path)
+
     def user_to_mongodb(self):
         """将爬取的用户信息写入MongoDB数据库"""
         user_list = [self.user]
@@ -175,7 +193,8 @@ class Weibo(object):
         print(u'%s信息写入MySQL数据库完毕' % self.user['screen_name'])
 
     def user_to_database(self):
-        """将用户信息写入数据库"""
+        """将用户信息写入文件/数据库"""
+        self.user_to_csv()
         if 'mysql' in self.write_mode:
             self.user_to_mysql()
         if 'mongo' in self.write_mode:
@@ -187,33 +206,21 @@ class Weibo(object):
         js = self.get_json(params)
         if js['ok']:
             info = js['data']['userInfo']
-            user_info = {}
+            user_info = OrderedDict()
             user_info['id'] = self.user_config['user_id']
             user_info['screen_name'] = info.get('screen_name', '')
             user_info['gender'] = info.get('gender', '')
-            user_info['statuses_count'] = info.get('statuses_count', 0)
-            user_info['followers_count'] = info.get('followers_count', 0)
-            user_info['follow_count'] = info.get('follow_count', 0)
-            user_info['description'] = info.get('description', '')
-            user_info['profile_url'] = info.get('profile_url', '')
-            user_info['profile_image_url'] = info.get('profile_image_url', '')
-            user_info['avatar_hd'] = info.get('avatar_hd', '')
-            user_info['urank'] = info.get('urank', 0)
-            user_info['mbrank'] = info.get('mbrank', 0)
-            user_info['verified'] = info.get('verified', False)
-            user_info['verified_type'] = info.get('verified_type', 0)
-            user_info['verified_reason'] = info.get('verified_reason', '')
             params = {
                 'containerid':
                 '230283' + str(self.user_config['user_id']) + '_-_INFO'
             }
             zh_list = [
-                u'注册时间', u'阳光信用', u'生日', u'所在地', u'小学', u'初中', u'高中', u'大学',
-                u'公司'
+                u'生日', u'所在地', u'小学', u'初中', u'高中', u'大学', u'公司', u'注册时间',
+                u'阳光信用'
             ]
             en_list = [
-                'registration_time', 'sunshine', 'birthday', 'location',
-                'education', 'education', 'education', 'education', 'company'
+                'birthday', 'location', 'education', 'education', 'education',
+                'education', 'company', 'registration_time', 'sunshine'
             ]
             for i in en_list:
                 user_info[i] = ''
@@ -227,6 +234,18 @@ class Weibo(object):
                             user_info[en_list[zh_list.index(
                                 card.get('item_name'))]] = card.get(
                                     'item_content', '')
+            user_info['statuses_count'] = info.get('statuses_count', 0)
+            user_info['followers_count'] = info.get('followers_count', 0)
+            user_info['follow_count'] = info.get('follow_count', 0)
+            user_info['description'] = info.get('description', '')
+            user_info['profile_url'] = info.get('profile_url', '')
+            user_info['profile_image_url'] = info.get('profile_image_url', '')
+            user_info['avatar_hd'] = info.get('avatar_hd', '')
+            user_info['urank'] = info.get('urank', 0)
+            user_info['mbrank'] = info.get('mbrank', 0)
+            user_info['verified'] = info.get('verified', False)
+            user_info['verified_type'] = info.get('verified_type', 0)
+            user_info['verified_reason'] = info.get('verified_reason', '')
             user = self.standardize_info(user_info)
             self.user = user
             self.user_to_database()
@@ -695,24 +714,33 @@ class Weibo(object):
         write_info = self.get_write_info(wrote_count)
         result_headers = self.get_result_headers()
         result_data = [w.values() for w in write_info]
+        file_path = self.get_filepath('csv')
+        self.csv_helper(result_headers, result_data, file_path)
+
+    def csv_helper(self, headers, result_data, file_path):
+        """将指定信息写入csv文件"""
+        if not os.path.isfile(file_path):
+            is_first_write = 1
+        else:
+            is_first_write = 0
         if sys.version < '3':  # python2.x
-            with open(self.get_filepath('csv'), 'ab') as f:
+            with open(file_path, 'ab') as f:
                 f.write(codecs.BOM_UTF8)
                 writer = csv.writer(f)
-                if wrote_count == 0:
-                    writer.writerows([result_headers])
+                if is_first_write:
+                    writer.writerows([headers])
                 writer.writerows(result_data)
         else:  # python3.x
-            with open(self.get_filepath('csv'),
-                      'a',
-                      encoding='utf-8-sig',
-                      newline='') as f:
+            with open(file_path, 'a', encoding='utf-8-sig', newline='') as f:
                 writer = csv.writer(f)
-                if wrote_count == 0:
-                    writer.writerows([result_headers])
+                if is_first_write:
+                    writer.writerows([headers])
                 writer.writerows(result_data)
-        print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
-        print(self.get_filepath('csv'))
+        if headers[0] == 'id':
+            print(u'%d条微博写入csv文件完毕,保存路径:' % self.got_count)
+        else:
+            print(u'%s 信息写入csv文件完毕，保存路径:' % self.user['screen_name'])
+        print(file_path)
 
     def update_json_data(self, data, weibo_info):
         """更新要写入json结果文件中的数据，已经存在于json中的信息更新为最新值，不存在的信息添加到data中"""
