@@ -1025,7 +1025,8 @@ class Weibo(object):
                         user_config['since_date'] = info[2]
                     else:
                         user_config['since_date'] = self.since_date
-                    user_config_list.append(user_config)
+                    if user_config not in user_config_list:
+                        user_config_list.append(user_config)
         return user_config_list
 
     def initialize_info(self, user_config):
