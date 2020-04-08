@@ -633,6 +633,8 @@ class Weibo(object):
                                 self.weibo_id_list.append(wb['id'])
                                 self.got_count += 1
                                 self.print_weibo(wb)
+                            else:
+                                print(u'正在过滤转发微博')
             print(u'{}已获取{}({})的第{}页微博{}'.format('-' * 30,
                                                  self.user['screen_name'],
                                                  self.user['id'], page,
