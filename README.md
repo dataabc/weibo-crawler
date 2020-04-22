@@ -321,6 +321,12 @@ MySQL和MongDB数据库的写入内容一样。程序首先会创建一个名为
 **id**：微博用户id，如"1669879400"；<br>
 **screen_name**：微博用户昵称，如"Dear-迪丽热巴"；<br>
 **gender**：微博用户性别，取值为f或m，分别代表女和男；<br>
+**birthday**：生日；<br>
+**location**：所在地；<br>
+**education**：教育经历；<br>
+**company**：公司；<br>
+**sunshine**：阳光信用；<br>
+**registration_time**：注册时间；<br>
 **statuses_count**：微博数；<br>
 **followers_count**：粉丝数；<br>
 **follow_count**：关注数；<br>
