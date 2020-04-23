@@ -562,7 +562,7 @@ class Weibo(object):
             weibo_id = weibo_info['id']
             retweeted_status = weibo_info.get('retweeted_status')
             is_long = weibo_info.get('isLongText')
-            if retweeted_status:  # 转发
+            if retweeted_status and retweeted_status.get('id'):  # 转发
                 retweet_id = retweeted_status.get('id')
                 is_long_retweet = retweeted_status.get('isLongText')
                 if is_long:
