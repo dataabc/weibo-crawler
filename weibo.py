@@ -418,6 +418,16 @@ class Weibo(object):
                     break
         return location
 
+    def get_article_url(self, selector):
+        """获取微博中头条文章的url"""
+        article_url = ''
+        text = selector.xpath('string(.)')
+        if text.startswith(u'发布了头条文章'):
+            url = selector.xpath('//a/@data-url')
+            if url and url[0].startswith('http://t.cn'):
+                article_url = url[0]
+        return article_url
+
     def get_topics(self, selector):
         """获取参与的微博话题"""
         span_list = selector.xpath("//span[@class='surl-text']")
@@ -496,6 +506,7 @@ class Weibo(object):
         text_body = weibo_info['text']
         selector = etree.HTML(text_body)
         weibo['text'] = etree.HTML(text_body).xpath('string(.)')
+        weibo['article_url'] = self.get_article_url(selector)
         weibo['pics'] = self.get_pics(weibo_info)
         weibo['video_url'] = self.get_video_url(weibo_info)
         weibo['location'] = self.get_location(selector)
@@ -713,8 +724,8 @@ class Weibo(object):
     def get_result_headers(self):
         """获取要写入结果文件的表头"""
         result_headers = [
-            'id', 'bid', '正文', '原始图片url', '视频url', '位置', '日期', '工具', '点赞数',
-            '评论数', '转发数', '话题', '@用户'
+            'id', 'bid', '正文', '头条文章url', '原始图片url', '视频url', '位置', '日期', '工具',
+            '点赞数', '评论数', '转发数', '话题', '@用户'
         ]
         if not self.filter:
             result_headers2 = ['是否原创', '源用户id', '源用户昵称']
@@ -904,6 +915,7 @@ class Weibo(object):
                 user_id varchar(20),
                 screen_name varchar(30),
                 text varchar(2000),
+                article_url varchar(100),
                 topics varchar(200),
                 at_users varchar(1000),
                 pics varchar(3000),
