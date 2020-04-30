@@ -58,6 +58,7 @@
 - 微博id：微博的id，为一串数字形式
 - 微博bid：微博的bid，与[cookie版](https://github.com/dataabc/weiboSpider)中的微博id是同一个值
 - 微博内容：微博正文
+- 头条文章url：微博中头条文章的url，如果微博中存在头条文章，就获取该头条文章的url，否则该值为''
 - 原始图片url：原创微博图片和转发微博转发理由中图片的url，若某条微博存在多张图片，则每个url以英文逗号分隔，若没有图片则值为''
 - 视频url: 微博中的视频url和Live Photo中的视频url，若某条微博存在多个视频，则每个url以英文分号分隔，若没有视频则值为''
 - 微博发布位置：位置微博中的发布位置
@@ -345,6 +346,7 @@ MySQL和MongDB数据库的写入内容一样。程序首先会创建一个名为
 **screen_name**：存储微博昵称，如"Dear-迪丽热巴"；<br>
 **id**：存储微博id；<br>
 **text**：存储微博正文；<br>
+**article_url**：存储微博中头条文章的url，如果微博中存在头条文章，就获取该头条文章的url，否则该值为''；<br>
 **pics**：存储原创微博的原始图片url。若某条微博有多张图片，则存储多个url，以英文逗号分割；若该微博没有图片，则值为''；<br>
 **video_url**：存储原创微博的视频url和Live Photo中的视频url。若某条微博有多个视频，则存储多个url，以英文分号分割；若该微博没有视频，则值为''；<br>
 **location**：存储微博的发布位置。若某条微博没有位置信息，则值为''；<br>
@@ -419,6 +421,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **screen_name**：存储微博昵称。如wb.weibo[0]['screen_name']为最新一条微博的昵称；<br>
 **id**：存储微博id。如wb.weibo[0]['id']为最新一条微博的id；<br>
 **text**：存储微博正文。如wb.weibo[0]['text']为最新一条微博的正文；<br>
+**article_url**：存储微博中头条文章的url。如wb.weibo[0]['article_url']为最新一条微博的头条文章url，若微博中不存在头条文章，则该值为''；<br>
 **pics**：存储原创微博的原始图片url。如wb.weibo[0]['pics']为最新一条微博的原始图片url，若该条微博有多张图片，则存储多个url，以英文逗号分割；若该微博没有图片，则值为''；<br>
 **video_url**：存储原创微博的视频url和原创微博Live Photo中的视频url。如wb.weibo[0]['video_url']为最新一条微博的视频url，若该条微博有多个视频，则存储多个url，以英文分号分割；若该微博没有视频，则值为''；<br>
 **location**：存储微博的发布位置。如wb.weibo[0]['location']为最新一条微博的发布位置，若该条微博没有位置信息，则值为''；<br>
@@ -439,6 +442,7 @@ wb.weibo包含爬取到的所有微博信息，如**微博id**、**正文**、**
 **screen_name**：存储原始微博昵称。wb.weibo[i-1]['retweet']['screen_name']为该原始微博的昵称；<br>
 **id**：存储原始微博id。wb.weibo[i-1]['retweet']['id']为该原始微博的id；<br>
 **text**：存储原始微博正文。wb.weibo[i-1]['retweet']['text']为该原始微博的正文；<br>
+**article_url**：存储原始微博中头条文章的url。如wb.weibo[i-1]['retweet']['article_url']为该原始微博的头条文章url，若原始微博中不存在头条文章，则该值为''；<br>
 **pics**：存储原始微博的原始图片url。wb.weibo[i-1]['retweet']['pics']为该原始微博的原始图片url，若该原始微博有多张图片，则存储多个url，以英文逗号分割；若该原始微博没有图片，则值为''；<br>
 **video_url**：存储原始微博的视频url和原始微博Live Photo中的视频url。如wb.weibo[i-1]['retweet']['video_url']为该原始微博的视频url，若该原始微博有多个视频，则存储多个url，以英文分号分割；若该微博没有视频，则值为''；<br>
 **location**：存储原始微博的发布位置。wb.weibo[i-1]['retweet']['location']为该原始微博的发布位置，若该原始微博没有位置信息，则值为''；<br>
