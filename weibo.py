@@ -337,7 +337,7 @@ class Weibo(object):
             error_file = self.get_filepath(
                 type) + os.sep + 'not_downloaded.txt'
             with open(error_file, 'ab') as f:
-                url = str(weibo_id) + ':' + url + '\n'
+                url = str(weibo_id) + ':' + file_path + ':' + url + '\n'
                 f.write(url.encode(sys.stdout.encoding))
             logger.exception(e)
 
