@@ -255,7 +255,7 @@ class Weibo(object):
             user_info['urank'] = info.get('urank', 0)
             user_info['mbrank'] = info.get('mbrank', 0)
             user_info['verified'] = info.get('verified', False)
-            user_info['verified_type'] = info.get('verified_type', 0)
+            user_info['verified_type'] = info.get('verified_type', -1)
             user_info['verified_reason'] = info.get('verified_reason', '')
             user = self.standardize_info(user_info)
             self.user = user
