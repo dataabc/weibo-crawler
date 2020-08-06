@@ -32,9 +32,10 @@ class Weibo(object):
         self.validate_config(config)
         self.filter = config[
             'filter']  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
-        since_date = str(config['since_date'])
-        if since_date.isdigit():
-            since_date = str(date.today() - timedelta(int(since_date)))
+        since_date = config['since_date']
+        if isinstance(since_date, int):
+            since_date = date.today() - timedelta(since_date)
+        since_date = str(since_date)
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
         self.write_mode = config[
             'write_mode']  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
@@ -83,8 +84,9 @@ class Weibo(object):
                 sys.exit()
 
         # 验证since_date
-        since_date = str(config['since_date'])
-        if (not self.is_date(since_date)) and (not since_date.isdigit()):
+        since_date = config['since_date']
+        if (not self.is_date(str(since_date))) and (not isinstance(
+                since_date, int)):
             logger.warning(u'since_date值应为yyyy-mm-dd形式或整数,请重新输入')
             sys.exit()
 
