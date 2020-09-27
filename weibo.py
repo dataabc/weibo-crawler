@@ -190,7 +190,7 @@ class Weibo(object):
                 location varchar(200),
                 education varchar(200),
                 company varchar(200),
-                description varchar(140),
+                description varchar(400),
                 profile_url varchar(200),
                 profile_image_url varchar(200),
                 avatar_hd varchar(200),
@@ -1087,7 +1087,7 @@ class Weibo(object):
                 self.get_pages()
                 logger.info(u'信息抓取完毕')
                 logger.info('*' * 100)
-                if self.user_config_file_path:
+                if self.user_config_file_path and self.user:
                     self.update_user_config_file(self.user_config_file_path)
         except Exception as e:
             logger.exception(e)
