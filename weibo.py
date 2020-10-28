@@ -11,6 +11,7 @@ import math
 import os
 import random
 import sys
+import warnings
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from time import sleep
@@ -19,6 +20,8 @@ import requests
 from lxml import etree
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
+
+warnings.filterwarnings("ignore")
 
 logging_path = os.path.split(
     os.path.realpath(__file__))[0] + os.sep + 'logging.conf'
@@ -47,7 +50,9 @@ class Weibo(object):
             'original_video_download']  # 取值范围为0、1, 0代表不下载原创微博视频,1代表下载
         self.retweet_video_download = config[
             'retweet_video_download']  # 取值范围为0、1, 0代表不下载转发微博视频,1代表下载
-        self.cookie = {'Cookie': config.get('cookie')}  # 微博cookie，可填可不填
+        cookie = config.get('cookie')  # 微博cookie，可填可不填
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36'
+        self.headers = {'User_Agent': user_agent, 'Cookie': cookie}
         self.mysql_config = config.get('mysql_config')  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
         if not isinstance(user_id_list, list):
@@ -126,7 +131,10 @@ class Weibo(object):
     def get_json(self, params):
         """获取网页中json数据"""
         url = 'https://m.weibo.cn/api/container/getIndex?'
-        r = requests.get(url, params=params, cookies=self.cookie)
+        r = requests.get(url,
+                         params=params,
+                         headers=self.headers,
+                         verify=False)
         return r.json()
 
     def get_weibo_json(self, page):
@@ -268,7 +276,7 @@ class Weibo(object):
         """获取长微博"""
         for i in range(5):
             url = 'https://m.weibo.cn/detail/%s' % id
-            html = requests.get(url, cookies=self.cookie).text
+            html = requests.get(url, headers=self.headers, verify=False).text
             html = html[html.find('"status":'):]
             html = html[:html.rfind('"hotScheme"')]
             html = html[:html.rfind(',')]
@@ -332,7 +340,10 @@ class Weibo(object):
             if not os.path.isfile(file_path):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
-                downloaded = s.get(url, cookies=self.cookie, timeout=(5, 10))
+                downloaded = s.get(url,
+                                   headers=self.headers,
+                                   timeout=(5, 10),
+                                   verify=False)
                 with open(file_path, 'wb') as f:
                     f.write(downloaded.content)
         except Exception as e:
