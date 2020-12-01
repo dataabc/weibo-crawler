@@ -219,6 +219,8 @@ $ pip install -r requirements.txt
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
+    "result_dir_name": 0,
+    "cookie": "your cookie",
     "mysql_config": {
         "host": "localhost",
         "port": 3306,
@@ -293,6 +295,12 @@ retweet_video_download控制是否下载**转发**微博中的视频和**转发*
 "retweet_video_download": 0,
 ```
 代表不下载转发微博中的视频和转发微博Live Photo中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即filter值为0时生效，否则程序会跳过转发微博的视频下载。<br>
+**设置result_dir_name**<br>
+result_dir_name控制结果文件的目录名，可取值为0和1，默认为0：
+```
+"result_dir_name": 0,
+```
+值为0，表示将结果文件保存在以用户昵称为名的文件夹里，这样结果更清晰；值为1表示将结果文件保存在以用户id为名的文件夹里，这样能保证多次爬取的一致性，因为用户昵称可变，用户id不可变。<br>
 **设置cookie（可选）**<br>
 cookie为可选参数，即可填可不填，具体区别见[添加cookie与不添加cookie的区别](#添加cookie与不添加cookie的区别可选)。cookie默认配置如下：
 ```
