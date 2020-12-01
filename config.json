@@ -7,7 +7,7 @@
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
-    "result_dir_name": 1,
+    "result_dir_name": 0,
     "cookie": "your cookie",
     "mysql_config": {
         "host": "localhost",
