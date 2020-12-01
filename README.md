@@ -304,7 +304,7 @@ result_dir_name控制结果文件的目录名，可取值为0和1，默认为0�
 **设置cookie（可选）**<br>
 cookie为可选参数，即可填可不填，具体区别见[添加cookie与不添加cookie的区别](#添加cookie与不添加cookie的区别可选)。cookie默认配置如下：
 ```
-"cookie": "your cookie"
+"cookie": "your cookie",
 ```
 如果想要设置cookie，可以按照[如何获取cookie](#如何获取cookie可选)中的方法，获取cookie，并将上面的"your cookie"替换成真实的cookie即可。<br>
 **设置mysql_config（可选）**<br>
