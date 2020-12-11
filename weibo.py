@@ -342,10 +342,13 @@ class Weibo(object):
             if not os.path.isfile(file_path):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
-                downloaded = s.get(url,
-                                   headers=self.headers,
-                                   timeout=(5, 10),
-                                   verify=False)
+                while True:
+                    downloaded = s.get(url,
+                                    headers=self.headers,
+                                    timeout=(5, 10),
+                                    verify=False)
+                    if downloaded.content.endswith(b'\xff\xd9') or downloaded.content.endswith(b'\xaeB`\x82'):
+                        break
                 with open(file_path, 'wb') as f:
                     f.write(downloaded.content)
         except Exception as e:
