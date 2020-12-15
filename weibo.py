@@ -342,13 +342,18 @@ class Weibo(object):
             if not os.path.isfile(file_path):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
-                while True:
+                flag = True
+                while flag:
+                    flag = False
                     downloaded = s.get(url,
-                                    headers=self.headers,
-                                    timeout=(5, 10),
-                                    verify=False)
-                    if downloaded.content.endswith(b'\xff\xd9') or downloaded.content.endswith(b'\xaeB`\x82'):
-                        break
+                                       headers=self.headers,
+                                       timeout=(5, 10),
+                                       verify=False)
+                    if (url.endswith(('jpg', 'jpeg'))
+                            and not downloaded.content.endswith(b'\xff\xd9')
+                        ) or (url.endswith('png') and
+                              not downloaded.content.endswith(b'\xaeB`\x82')):
+                        flag = True
                 with open(file_path, 'wb') as f:
                     f.write(downloaded.content)
         except Exception as e:
@@ -607,7 +612,8 @@ class Weibo(object):
             weibo_info = info['mblog']
             weibo_id = weibo_info['id']
             retweeted_status = weibo_info.get('retweeted_status')
-            is_long = True if weibo_info.get('pic_num') > 9 else weibo_info.get('isLongText')
+            is_long = True if weibo_info.get(
+                'pic_num') > 9 else weibo_info.get('isLongText')
             if retweeted_status and retweeted_status.get('id'):  # 转发
                 retweet_id = retweeted_status.get('id')
                 is_long_retweet = retweeted_status.get('isLongText')
