@@ -57,6 +57,10 @@ class Weibo(object):
         self.headers = {'User_Agent': user_agent, 'Cookie': cookie}
         self.mysql_config = config.get('mysql_config')  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
+        query_list = config.get('query_list') or [];
+        if isinstance(query_list, str):
+            query_list = query_list.split(',')
+        self.query_list = query_list
         if not isinstance(user_id_list, list):
             if not os.path.isabs(user_id_list):
                 user_id_list = os.path.split(
@@ -67,11 +71,13 @@ class Weibo(object):
             self.user_config_file_path = ''
             user_config_list = [{
                 'user_id': user_id,
-                'since_date': self.since_date
+                'since_date': self.since_date,
+                'query_list': query_list
             } for user_id in user_id_list]
         self.user_config_list = user_config_list  # 要爬取的微博用户的user_config列表
         self.user_config = {}  # 用户配置,包含用户id和since_date
         self.start_date = ''  # 获取用户第一条微博时的日期
+        self.query = ''
         self.user = {}  # 存储目标微博用户信息
         self.got_count = 0  # 存储爬取到的微博数
         self.weibo = []  # 存储爬取到的所有微博信息
@@ -95,6 +101,13 @@ class Weibo(object):
         if (not self.is_date(str(since_date))) and (not isinstance(
                 since_date, int)):
             logger.warning(u'since_date值应为yyyy-mm-dd形式或整数,请重新输入')
+            sys.exit()
+
+        # 验证query_list
+        query_list = config.get('query_list') or []
+        if (not isinstance(query_list, list)) and (not isinstance(
+                query_list, str)):
+            logger.warning(u'query_list值应为list类型或字符串,请重新输入')
             sys.exit()
 
         # 验证write_mode
@@ -142,9 +155,12 @@ class Weibo(object):
     def get_weibo_json(self, page):
         """获取网页中微博json数据"""
         params = {
-            'containerid': '107603' + str(self.user_config['user_id']),
-            'page': page
-        }
+                'container_ext': 'profile_uid:' + str(self.user_config['user_id']),
+                'containerid': '100103type=401&q=' + self.query,
+                'page_type': 'searchall'
+                } if self.query else {
+                        'containerid': '107603' + str(self.user_config['user_id'])}
+        params['page'] = page
         js = self.get_json(params)
         return js
 
@@ -660,6 +676,8 @@ class Weibo(object):
             js = self.get_weibo_json(page)
             if js['ok']:
                 weibos = js['data']['cards']
+                if self.query:
+                    weibos = weibos[0]['card_group']
                 for w in weibos:
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
@@ -674,9 +692,9 @@ class Weibo(object):
                                 if self.is_pinned_weibo(w):
                                     continue
                                 else:
-                                    logger.info(u'{}已获取{}({})的第{}页微博{}'.format(
+                                    logger.info(u'{}已获取{}({})的第{}页{}微博{}'.format(
                                         '-' * 30, self.user['screen_name'],
-                                        self.user['id'], page, '-' * 30))
+                                        self.user['id'], page, '包含"' + self.query + '"的' if self.query else '', '-' * 30))
                                     return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
@@ -686,6 +704,8 @@ class Weibo(object):
                                 self.print_weibo(wb)
                             else:
                                 logger.info(u'正在过滤转发微博')
+            else:
+                return True
             logger.info(u'{}已获取{}({})的第{}页微博{}'.format(
                 '-' * 30, self.user['screen_name'], self.user['id'], page,
                 '-' * 30))
@@ -1087,10 +1107,18 @@ class Weibo(object):
                 if len(info) > 0 and info[0].isdigit():
                     user_config = {}
                     user_config['user_id'] = info[0]
-                    if len(info) > 2 and self.is_date(info[2]):
-                        user_config['since_date'] = info[2]
+                    if len(info) > 2:
+                        if self.is_date(info[2]):
+                            user_config['since_date'] = info[2]
+                        elif info[2].isdigit():
+                            since_date = date.today() - timedelta(int(info[2]))
+                            user_config['since_date'] = str(since_date)
                     else:
                         user_config['since_date'] = self.since_date
+                    if len(info) > 3:
+                        user_config['query_list'] = info[3].split(',')
+                    else:
+                        user_config['query_list'] = self.query_list
                     if user_config not in user_config_list:
                         user_config_list.append(user_config)
         return user_config_list
@@ -1107,8 +1135,14 @@ class Weibo(object):
         """运行爬虫"""
         try:
             for user_config in self.user_config_list:
-                self.initialize_info(user_config)
-                self.get_pages()
+                if len(user_config['query_list']):
+                    for query in user_config['query_list']:
+                        self.query = query
+                        self.initialize_info(user_config)
+                        self.get_pages()
+                else:
+                    self.initialize_info(user_config)
+                    self.get_pages()
                 logger.info(u'信息抓取完毕')
                 logger.info('*' * 100)
                 if self.user_config_file_path and self.user:
@@ -1126,7 +1160,7 @@ def get_config():
                        (os.path.split(os.path.realpath(__file__))[0] + os.sep))
         sys.exit()
     try:
-        with open(config_path) as f:
+        with open(config_path, encoding='utf-8') as f:
             config = json.loads(f.read())
             return config
     except ValueError:
