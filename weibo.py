@@ -704,6 +704,8 @@ class Weibo(object):
                                 self.print_weibo(wb)
                             else:
                                 logger.info(u'正在过滤转发微博')
+            else:
+                return True
             logger.info(u'{}已获取{}({})的第{}页微博{}'.format(
                 '-' * 30, self.user['screen_name'], self.user['id'], page,
                 '-' * 30))
