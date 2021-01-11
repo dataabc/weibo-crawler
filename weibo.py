@@ -40,6 +40,7 @@ class Weibo(object):
             since_date = date.today() - timedelta(since_date)
         since_date = str(since_date)
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
+        self.start_page = config.get('start_page', 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config[
             'write_mode']  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
         self.original_pic_download = config[
@@ -514,22 +515,25 @@ class Weibo(object):
     def standardize_date(self, created_at):
         """标准化微博发布时间"""
         if u'刚刚' in created_at:
-            created_at = datetime.now().strftime('%Y-%m-%d')
+            date_str = datetime.now().strftime('%Y-%m-%d')
         elif u'分钟' in created_at:
             minute = created_at[:created_at.find(u'分钟')]
             minute = timedelta(minutes=int(minute))
-            created_at = (datetime.now() - minute).strftime('%Y-%m-%d')
+            date_str = (datetime.now() - minute).strftime('%Y-%m-%d')
         elif u'小时' in created_at:
             hour = created_at[:created_at.find(u'小时')]
             hour = timedelta(hours=int(hour))
-            created_at = (datetime.now() - hour).strftime('%Y-%m-%d')
+            date_str = (datetime.now() - hour).strftime('%Y-%m-%d')
         elif u'昨天' in created_at:
             day = timedelta(days=1)
-            created_at = (datetime.now() - day).strftime('%Y-%m-%d')
+            date_str = (datetime.now() - day).strftime('%Y-%m-%d')
         elif created_at.count('-') == 1:
             year = datetime.now().strftime('%Y')
-            created_at = year + '-' + created_at
-        return created_at
+            date_str = year + '-' + created_at
+        else:
+            date_str = created_at
+        time_str = created_at.split()[-1] if ' ' in created_at else '12:00'
+        return date_str + ' ' + time_str
 
     def standardize_info(self, weibo):
         """标准化信息，去除乱码"""
@@ -685,7 +689,7 @@ class Weibo(object):
                             if wb['id'] in self.weibo_id_list:
                                 continue
                             created_at = datetime.strptime(
-                                wb['created_at'], '%Y-%m-%d')
+                                wb['created_at'], '%Y-%m-%d %H:%M')
                             since_date = datetime.strptime(
                                 self.user_config['since_date'], '%Y-%m-%d')
                             if created_at < since_date:
@@ -1069,7 +1073,8 @@ class Weibo(object):
                 page1 = 0
                 random_pages = random.randint(1, 5)
                 self.start_date = datetime.now().strftime('%Y-%m-%d')
-                for page in tqdm(range(1, page_count + 1), desc='Progress'):
+                pages = range(self.start_page, page_count + 1)
+                for page in tqdm(pages, desc='Progress'):
                     is_end = self.get_one_page(page)
                     if is_end:
                         break
