@@ -57,7 +57,7 @@ class Weibo(object):
         self.headers = {'User_Agent': user_agent, 'Cookie': cookie}
         self.mysql_config = config.get('mysql_config')  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
-        query_list = config.get('query_list') or [];
+        query_list = config.get('query_list') or []
         if isinstance(query_list, str):
             query_list = query_list.split(',')
         self.query_list = query_list
@@ -155,11 +155,12 @@ class Weibo(object):
     def get_weibo_json(self, page):
         """获取网页中微博json数据"""
         params = {
-                'container_ext': 'profile_uid:' + str(self.user_config['user_id']),
-                'containerid': '100103type=401&q=' + self.query,
-                'page_type': 'searchall'
-                } if self.query else {
-                        'containerid': '107603' + str(self.user_config['user_id'])}
+            'container_ext': 'profile_uid:' + str(self.user_config['user_id']),
+            'containerid': '100103type=401&q=' + self.query,
+            'page_type': 'searchall'
+        } if self.query else {
+            'containerid': '107603' + str(self.user_config['user_id'])
+        }
         params['page'] = page
         js = self.get_json(params)
         return js
@@ -526,9 +527,10 @@ class Weibo(object):
         elif u'昨天' in created_at:
             day = timedelta(days=1)
             created_at = (datetime.now() - day).strftime('%Y-%m-%d')
-        elif created_at.count('-') == 1:
-            year = datetime.now().strftime('%Y')
-            created_at = year + '-' + created_at
+        else:
+            created_at = created_at.replace('+0800 ', '')
+            temp = datetime.strptime(created_at, '%c')
+            created_at = datetime.strftime(temp, '%Y-%m-%d')
         return created_at
 
     def standardize_info(self, weibo):
@@ -692,9 +694,13 @@ class Weibo(object):
                                 if self.is_pinned_weibo(w):
                                     continue
                                 else:
-                                    logger.info(u'{}已获取{}({})的第{}页{}微博{}'.format(
-                                        '-' * 30, self.user['screen_name'],
-                                        self.user['id'], page, '包含"' + self.query + '"的' if self.query else '', '-' * 30))
+                                    logger.info(
+                                        u'{}已获取{}({})的第{}页{}微博{}'.format(
+                                            '-' * 30, self.user['screen_name'],
+                                            self.user['id'], page,
+                                            '包含"' + self.query +
+                                            '"的' if self.query else '',
+                                            '-' * 30))
                                     return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
