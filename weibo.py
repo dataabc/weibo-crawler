@@ -40,6 +40,7 @@ class Weibo(object):
             since_date = date.today() - timedelta(since_date)
         since_date = str(since_date)
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
+        self.start_page = config.get('start_page', 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config[
             'write_mode']  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
         self.original_pic_download = config[
@@ -1077,7 +1078,8 @@ class Weibo(object):
                 page1 = 0
                 random_pages = random.randint(1, 5)
                 self.start_date = datetime.now().strftime('%Y-%m-%d')
-                for page in tqdm(range(1, page_count + 1), desc='Progress'):
+                pages = range(self.start_page, page_count + 1)
+                for page in tqdm(pages, desc='Progress'):
                     is_end = self.get_one_page(page)
                     if is_end:
                         break
