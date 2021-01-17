@@ -58,7 +58,7 @@ class Weibo(object):
         self.headers = {'User_Agent': user_agent, 'Cookie': cookie}
         self.mysql_config = config.get('mysql_config')  # MySQL数据库连接配置，可以不填
         user_id_list = config['user_id_list']
-        query_list = config.get('query_list') or [];
+        query_list = config.get('query_list') or []
         if isinstance(query_list, str):
             query_list = query_list.split(',')
         self.query_list = query_list
@@ -156,11 +156,12 @@ class Weibo(object):
     def get_weibo_json(self, page):
         """获取网页中微博json数据"""
         params = {
-                'container_ext': 'profile_uid:' + str(self.user_config['user_id']),
-                'containerid': '100103type=401&q=' + self.query,
-                'page_type': 'searchall'
-                } if self.query else {
-                        'containerid': '107603' + str(self.user_config['user_id'])}
+            'container_ext': 'profile_uid:' + str(self.user_config['user_id']),
+            'containerid': '100103type=401&q=' + self.query,
+            'page_type': 'searchall'
+        } if self.query else {
+            'containerid': '107603' + str(self.user_config['user_id'])
+        }
         params['page'] = page
         js = self.get_json(params)
         return js
@@ -360,12 +361,14 @@ class Weibo(object):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
                 flag = True
-                while flag:
+                try_count = 0
+                while flag and try_count < 5:
                     flag = False
                     downloaded = s.get(url,
                                        headers=self.headers,
                                        timeout=(5, 10),
                                        verify=False)
+                    try_count += 1
                     if (url.endswith(('jpg', 'jpeg'))
                             and not downloaded.content.endswith(b'\xff\xd9')
                         ) or (url.endswith('png') and
@@ -515,25 +518,23 @@ class Weibo(object):
     def standardize_date(self, created_at):
         """标准化微博发布时间"""
         if u'刚刚' in created_at:
-            date_str = datetime.now().strftime('%Y-%m-%d')
+            created_at = datetime.now().strftime('%Y-%m-%d')
         elif u'分钟' in created_at:
             minute = created_at[:created_at.find(u'分钟')]
             minute = timedelta(minutes=int(minute))
-            date_str = (datetime.now() - minute).strftime('%Y-%m-%d')
+            created_at = (datetime.now() - minute).strftime('%Y-%m-%d')
         elif u'小时' in created_at:
             hour = created_at[:created_at.find(u'小时')]
             hour = timedelta(hours=int(hour))
-            date_str = (datetime.now() - hour).strftime('%Y-%m-%d')
+            created_at = (datetime.now() - hour).strftime('%Y-%m-%d')
         elif u'昨天' in created_at:
             day = timedelta(days=1)
-            date_str = (datetime.now() - day).strftime('%Y-%m-%d')
-        elif created_at.count('-') == 1:
-            year = datetime.now().strftime('%Y')
-            date_str = year + '-' + created_at
+            created_at = (datetime.now() - day).strftime('%Y-%m-%d')
         else:
-            date_str = created_at
-        time_str = created_at.split()[-1] if ' ' in created_at else '12:00'
-        return date_str + ' ' + time_str
+            created_at = created_at.replace('+0800 ', '')
+            temp = datetime.strptime(created_at, '%c')
+            created_at = datetime.strftime(temp, '%Y-%m-%d')
+        return created_at
 
     def standardize_info(self, weibo):
         """标准化信息，去除乱码"""
@@ -689,16 +690,20 @@ class Weibo(object):
                             if wb['id'] in self.weibo_id_list:
                                 continue
                             created_at = datetime.strptime(
-                                wb['created_at'], '%Y-%m-%d %H:%M')
+                                wb['created_at'], '%Y-%m-%d')
                             since_date = datetime.strptime(
                                 self.user_config['since_date'], '%Y-%m-%d')
                             if created_at < since_date:
                                 if self.is_pinned_weibo(w):
                                     continue
                                 else:
-                                    logger.info(u'{}已获取{}({})的第{}页{}微博{}'.format(
-                                        '-' * 30, self.user['screen_name'],
-                                        self.user['id'], page, '包含"' + self.query + '"的' if self.query else '', '-' * 30))
+                                    logger.info(
+                                        u'{}已获取{}({})的第{}页{}微博{}'.format(
+                                            '-' * 30, self.user['screen_name'],
+                                            self.user['id'], page,
+                                            '包含"' + self.query +
+                                            '"的' if self.query else '',
+                                            '-' * 30))
                                     return True
                             if (not self.filter) or (
                                     'retweet' not in wb.keys()):
