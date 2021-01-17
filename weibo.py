@@ -360,12 +360,14 @@ class Weibo(object):
                 s = requests.Session()
                 s.mount(url, HTTPAdapter(max_retries=5))
                 flag = True
-                while flag:
+                try_count = 0
+                while flag and try_count < 5:
                     flag = False
                     downloaded = s.get(url,
                                        headers=self.headers,
                                        timeout=(5, 10),
                                        verify=False)
+                    try_count += 1
                     if (url.endswith(('jpg', 'jpeg'))
                             and not downloaded.content.endswith(b'\xff\xd9')
                         ) or (url.endswith('png') and
