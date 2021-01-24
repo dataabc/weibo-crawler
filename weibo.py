@@ -40,7 +40,8 @@ class Weibo(object):
             since_date = date.today() - timedelta(since_date)
         since_date = str(since_date)
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
-        self.start_page = config.get('start_page', 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
+        self.start_page = config.get('start_page',
+                                     1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config[
             'write_mode']  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
         self.original_pic_download = config[
@@ -335,9 +336,9 @@ class Weibo(object):
         video_url = ''
         video_url_list = []
         if weibo_info.get('page_info'):
-            if weibo_info['page_info'].get('media_info') and weibo_info[
-                    'page_info'].get('type') == 'video':
-                media_info = weibo_info['page_info']['media_info']
+            if weibo_info['page_info'].get(
+                    'urls') and weibo_info['page_info'].get('type') == 'video':
+                media_info = weibo_info['page_info']['urls']
                 video_url = media_info.get('mp4_720p_mp4')
                 if not video_url:
                     video_url = media_info.get('mp4_hd_url')
