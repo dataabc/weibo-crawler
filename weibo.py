@@ -336,18 +336,25 @@ class Weibo(object):
         video_url = ''
         video_url_list = []
         if weibo_info.get('page_info'):
-            if weibo_info['page_info'].get(
-                    'urls') and weibo_info['page_info'].get('type') == 'video':
+            if ((weibo_info['page_info'].get('urls')
+                 or weibo_info['page_info'].get('media_info'))
+                    and weibo_info['page_info'].get('type') == 'video'):
                 media_info = weibo_info['page_info']['urls']
+                if not media_info:
+                    media_info = weibo_info['page_info']['media_info']
                 video_url = media_info.get('mp4_720p_mp4')
                 if not video_url:
                     video_url = media_info.get('mp4_hd_url')
-                    if not video_url:
-                        video_url = media_info.get('mp4_sd_url')
-                        if not video_url:
-                            video_url = media_info.get('stream_url_hd')
-                            if not video_url:
-                                video_url = media_info.get('stream_url')
+                if not video_url:
+                    video_url = media_info.get('hevc_mp4_hd')
+                if not video_url:
+                    video_url = media_info.get('mp4_sd_url')
+                if not video_url:
+                    video_url = media_info.get('mp4_ld_mp4')
+                if not video_url:
+                    video_url = media_info.get('stream_url_hd')
+                if not video_url:
+                    video_url = media_info.get('stream_url')
         if video_url:
             video_url_list.append(video_url)
         live_photo_list = self.get_live_photo(weibo_info)
