@@ -214,6 +214,7 @@ $ pip install -r requirements.txt
 {
     "user_id_list": ["1669879400"],
     "filter": 1,
+    "remove_html_tag": 1,
     "since_date": "2018-01-01",
     "write_mode": ["csv"],
     "original_pic_download": 1,
@@ -274,6 +275,12 @@ query_list是一个关键词字符串列表或以`,`分隔关键词的字符串�
 ```
 请注意，关键词搜索必须设定`cookie`信息。
 **query_list是所有user的爬取关键词，非常不灵活。如果你要爬多个用户，并且想单独为每个用户设置一个query_list，可以使用[定期自动爬取微博](#7定期自动爬取微博可选)方法二中的方法，该方法可以为多个用户设置不同的query_list，非常灵活**。<br>
+**设置remove_html_tag**<br>
+remove_html_tag控制是否移除抓取到的weibo正文中的html tag，值为1代表移除，值为0代表不移除，如
+```
+"remove_html_tag": 1,
+```
+代表移除html tag。例如`专属新意，色彩启程~<a href='/n/路易威登'>@路易威登</a> CAPUCINES 手袋正合我意，打开灵感包袋的搭配新方式！`会被处理成`专属新意，色彩启程~@路易威登 CAPUCINES 手袋正合我意，打开灵感包袋的搭配新方式！ `。<br>
 **设置write_mode**<br>
 write_mode控制结果文件格式，取值范围是csv、json、mongo和mysql，分别代表将结果文件写入csv、json、MongoDB和MySQL数据库。write_mode可以同时包含这些取值中的一个或几个，如：
 ```
