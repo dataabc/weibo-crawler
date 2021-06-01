@@ -35,6 +35,8 @@ class Weibo(object):
         self.validate_config(config)
         self.filter = config[
             'filter']  # 取值范围为0、1,程序默认值为0,代表要爬取用户的全部微博,1代表只爬取用户的原创微博
+        self.remove_html_tag = config[
+            'remove_html_tag']  # 取值范围为0、1, 0代表不移除微博中的html tag, 1代表移除
         since_date = config['since_date']
         if isinstance(since_date, int):
             since_date = date.today() - timedelta(since_date)
@@ -566,7 +568,10 @@ class Weibo(object):
         weibo['bid'] = weibo_info['bid']
         text_body = weibo_info['text']
         selector = etree.HTML(text_body)
-        weibo['text'] = etree.HTML(text_body).xpath('string(.)')
+        if self.remove_html_tag:
+            weibo['text'] = selector.xpath('string(.)')
+        else:
+            weibo['text'] = text_body
         weibo['article_url'] = self.get_article_url(selector)
         weibo['pics'] = self.get_pics(weibo_info)
         weibo['video_url'] = self.get_video_url(weibo_info)
