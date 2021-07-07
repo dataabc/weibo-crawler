@@ -418,12 +418,11 @@ class Weibo(object):
         cur = con.cursor()
 
         query_sql = """SELECT url FROM bins WHERE path=? """
-
         count = cur.execute(query_sql, (url, )).fetchone()
+        con.close()
         if count is None:
             return False
 
-        con.close()
         return True
 
     def insert_file_sqlite(self, file_path, weibo_id, url, binary):
