@@ -1107,11 +1107,11 @@ class Weibo(object):
 
         con.close()
 
-    def sqlite_insert_weibo(self, con: sqlite3.Connection, sqlite_weibo: dict):
+    def sqlite_insert_weibo(self, con: sqlite3.Connection, weibo: dict):
+        sqlite_weibo=self.parse_sqlite_weibo(weibo)
         self.sqlite_insert(con, sqlite_weibo, "weibo")
 
-    def parse_sqlite_weibo(self):
-        weibo = self.weibo
+    def parse_sqlite_weibo(self,weibo):
         if not weibo:
             return
         sqlite_weibo = OrderedDict()
@@ -1135,16 +1135,15 @@ class Weibo(object):
         return sqlite_weibo
 
     def user_to_sqlite(self):
-        user = self.parse_sqlite_user()
         con = self.get_sqlite_connection()
-        self.sqlite_insert_user(con, user)
+        self.sqlite_insert_user(con, self.user)
         con.close()
 
     def sqlite_insert_user(self, con: sqlite3.Connection, user: dict):
-        self.sqlite_insert(con, user, "user")
+        sqlite_user = self.parse_sqlite_user(user)
+        self.sqlite_insert(con, sqlite_user, "user")
 
-    def parse_sqlite_user(self):
-        user = self.user
+    def parse_sqlite_user(self,user):
         if not user:
             return
         sqlite_user = OrderedDict()
@@ -1164,6 +1163,8 @@ class Weibo(object):
         return sqlite_user
 
     def sqlite_insert(self, con: sqlite3.Connection, data: dict, table: str):
+        if not data:
+            return
         cur = con.cursor()
         keys = ",".join(data.keys())
         values = ",".join(['?'] * len(data))
