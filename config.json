@@ -9,6 +9,8 @@
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
+    "download_comment":1,
+    "comment_max_download_count":100,
     "result_dir_name": 0,
     "cookie": "your cookie",
     "mysql_config": {
