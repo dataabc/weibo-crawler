@@ -752,9 +752,9 @@ class Weibo(object):
         :max_count 最大允许下载数
         :on_downloaded 下载完成时的实例方法回调
         """
-        if weibo['comments_count']==0:
+        if weibo['comments_count'] == 0:
             return
-            
+
         logger.info(u'正在下载评论 微博id{id}'.format(id=weibo['id']))
         self._get_weibo_comments_cookie(weibo, 0, max_count, None,
                                         on_downloaded)
@@ -788,7 +788,7 @@ class Weibo(object):
             json = req.json()
         except Exception as e:
             #没有cookie会抓取失败
-            # 微博日期小于某个日期的用这个url会被403 需要用老办法尝试一下
+            #微博日期小于某个日期的用这个url会被403 需要用老办法尝试一下
             error = True
 
         if error:
@@ -804,7 +804,7 @@ class Weibo(object):
         count = len(comments)
         if count == 0:
             #没有了可以直接跳出递归
-            return
+            return  
 
         if on_downloaded:
             on_downloaded(comments)
@@ -1239,16 +1239,16 @@ class Weibo(object):
         max_count = self.comment_max_download_count
         download_comment = (self.download_comment and max_count > 0)
 
-        count=0
+        count = 0
         for weibo in weibo_list:
             self.sqlite_insert_weibo(con, weibo)
-            if download_comment and weibo['comments_count']>0:
+            if (download_comment) and (weibo['comments_count'] > 0):
                 self.get_weibo_comments(weibo, max_count,
                                         self.sqlite_insert_comments)
-                count+=1
-                #随机睡3到6秒
-                if count%20:
-                    sleep(random.randint(3,6))
+                count += 1
+                #为防止被ban抓取一定数量的评论后随机睡3到6秒
+                if count % 20:
+                    sleep(random.randint(3, 6))
 
         for weibo in retweet_list:
             self.sqlite_insert_weibo(con, weibo)
