@@ -1260,7 +1260,7 @@ class Weibo(object):
             return
         con = self.get_sqlite_connection()
         for comment in comments:
-            data = self.parse_sqlite_comment(comments)
+            data = self.parse_sqlite_comment(comment)
             self.sqlite_insert(con, data, "comments")
 
         con.close()
