@@ -755,7 +755,7 @@ class Weibo(object):
         if weibo['comments_count'] == 0:
             return
 
-        logger.info(u'正在下载评论 微博id{id}'.format(id=weibo['id']))
+        logger.info(u'正在下载评论 微博id:{id}正文:{text}'.format(id=weibo['id'],text=weibo['text']))
         self._get_weibo_comments_cookie(weibo, 0, max_count, None,
                                         on_downloaded)
 
@@ -799,15 +799,19 @@ class Weibo(object):
 
         data = json.get('data')
         if not data:
+            #新接口没有抓取到的老接口也试一下
+            self._get_weibo_comments_nocookie(weibo, 0, max_count, 0,
+                                              on_downloaded)
             return
+
         comments = data.get('data')
         count = len(comments)
         if count == 0:
             #没有了可以直接跳出递归
-            return  
+            return
 
         if on_downloaded:
-            on_downloaded(comments)
+            on_downloaded(weibo, comments)
 
         #随机睡眠一下
         if max_count % 40 == 0:
@@ -815,6 +819,10 @@ class Weibo(object):
 
         cur_count += count
         max_id = data.get('max_id')
+
+        if max_id == 0:
+            return
+
         self._get_weibo_comments_cookie(weibo, cur_count, max_count, max_id,
                                         on_downloaded)
 
@@ -852,7 +860,7 @@ class Weibo(object):
             return
 
         if on_downloaded:
-            on_downloaded(comments)
+            on_downloaded(weibo, comments)
 
         cur_count += count
         page += 1
@@ -862,6 +870,10 @@ class Weibo(object):
             sleep(random.randint(1, 5))
 
         req_page = data.get('max')
+
+        if req_page == 0:
+            return
+
         if page >= req_page:
             return
         self._get_weibo_comments_nocookie(weibo, cur_count, max_count, page,
@@ -1255,17 +1267,17 @@ class Weibo(object):
 
         con.close()
 
-    def sqlite_insert_comments(self, comments):
+    def sqlite_insert_comments(self, weibo, comments):
         if not comments or len(comments) == 0:
             return
         con = self.get_sqlite_connection()
         for comment in comments:
-            data = self.parse_sqlite_comment(comment)
+            data = self.parse_sqlite_comment(comment, weibo)
             self.sqlite_insert(con, data, "comments")
 
         con.close()
 
-    def parse_sqlite_comment(self, comment):
+    def parse_sqlite_comment(self, comment, weibo):
         if not comment:
             return
         sqlite_comment = OrderedDict()
@@ -1273,6 +1285,9 @@ class Weibo(object):
 
         self._try_get_value('bid', 'bid', sqlite_comment, comment)
         self._try_get_value('root_id', 'rootid', sqlite_comment, comment)
+        self._try_get_value('created_at', 'created_at', sqlite_comment,
+                            comment)
+        sqlite_comment["weibo_id"] = weibo['id']
 
         sqlite_comment["user_id"] = comment['user']['id']
         sqlite_comment["user_screen_name"] = comment['user']['screen_name']
@@ -1434,8 +1449,10 @@ class Weibo(object):
                 CREATE TABLE IF NOT EXISTS comments (
                     id varchar(20) NOT NULL
                     ,bid varchar(20) NOT NULL
+                    ,weibo_id varchar(32) NOT NULL
                     ,root_id varchar(20) 
                     ,user_id varchar(20) NOT NULL
+                    ,created_at varchar(20)
                     ,user_screen_name varchar(64) NOT NULL
                     ,user_avatar_url text
                     ,text varchar(1000)
