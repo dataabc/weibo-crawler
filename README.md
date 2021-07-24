@@ -21,12 +21,14 @@
 - 写入**json文件**（可选）
 - 写入**MySQL数据库**（可选）
 - 写入**MongoDB数据库**（可选）
+- 写入**SQLite数据库**（可选）
 - 下载用户**原创**微博中的原始**图片**（可选）
 - 下载用户**转发**微博中的原始**图片**（可选）
 - 下载用户**原创**微博中的**视频**（可选）
 - 下载用户**转发**微博中的**视频**（可选）
 - 下载用户**原创**微博**Live Photo**中的**视频**（可选）
-- 下载用户**转发**微博**Live Photo**中的**视频**（可选）<br>
+- 下载用户**转发**微博**Live Photo**中的**视频**（可选）
+- 下载用户**原创和转发**微博下的一级评论（可选）<br>
 
 如果你只对用户信息感兴趣，而不需要爬用户的微博，也可以通过设置实现只爬取微博用户信息的功能。程序也可以实现**爬取结果自动更新**，即：现在爬取了目标用户的微博，几天之后，目标用户可能又发新微博了。通过设置，可以实现每隔几天**增量爬取**用户这几天发的新微博。具体方法见[定期自动爬取微博](#7定期自动爬取微博可选)。<br>
 
@@ -221,6 +223,8 @@ $ pip install -r requirements.txt
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
+    "download_comment":1,
+    "comment_max_download_count":1000,
     "result_dir_name": 0,
     "cookie": "your cookie",
     "mysql_config": {
@@ -282,7 +286,7 @@ remove_html_tag控制是否移除抓取到的weibo正文中的html tag，值为1
 ```
 代表移除html tag。例如`专属新意，色彩启程~<a href='/n/路易威登'>@路易威登</a> CAPUCINES 手袋正合我意，打开灵感包袋的搭配新方式！`会被处理成`专属新意，色彩启程~@路易威登 CAPUCINES 手袋正合我意，打开灵感包袋的搭配新方式！ `。<br>
 **设置write_mode**<br>
-write_mode控制结果文件格式，取值范围是csv、json、mongo和mysql，分别代表将结果文件写入csv、json、MongoDB和MySQL数据库。write_mode可以同时包含这些取值中的一个或几个，如：
+write_mode控制结果文件格式，取值范围是csv、json、mongo、mysql和sqlite，分别代表将结果文件写入csv、json、MongoDB、MySQL和SQLite数据库。write_mode可以同时包含这些取值中的一个或几个，如：
 ```
 "write_mode": ["csv", "json"],
 ```
@@ -317,6 +321,18 @@ result_dir_name控制结果文件的目录名，可取值为0和1，默认为0�
 "result_dir_name": 0,
 ```
 值为0，表示将结果文件保存在以用户昵称为名的文件夹里，这样结果更清晰；值为1表示将结果文件保存在以用户id为名的文件夹里，这样能保证多次爬取的一致性，因为用户昵称可变，用户id不可变。<br>
+**设置download_comment**<br>
+download_comment控制是否下载每条微博下的一级评论（不包括对评论的评论），仅当write_mode中有sqlite时有效，可取值为0和1，默认为1：
+```
+"download_comment": 1,
+```
+值为1，表示下载微博评论；值为0，表示不下载微博评论。<br>
+**设置comment_max_download_count**<br>
+comment_max_download_count控制下载评论的最大数量，仅当write_mode中有sqlite时有效，默认为1000：
+```
+"comment_max_download_count": 1000,
+```
+值为1000，表示最多下载每条微博下的1000条一级评论。<br>
 **设置cookie（可选）**<br>
 cookie为可选参数，即可填可不填，具体区别见[添加cookie与不添加cookie的区别](#添加cookie与不添加cookie的区别可选)。cookie默认配置如下：
 ```
@@ -386,7 +402,8 @@ MySQL和MongDB数据库的写入内容一样。程序首先会创建一个名为
 **at_users**：存储微博@的用户。若某条微博没有@的用户，则值为''；<br>
 **retweet_id**：存储转发微博中原始微博的微博id。若某条微博为原创微博，则值为''。<br>
 </details>
-
+**SQLite数据库写入**<br>
+脚本会自动建立并配置数据库文件`weibodata.db`。<br>
 ### 5.运行脚本
 大家可以根据自己的运行环境选择运行方式，Linux可以通过
 ```bash
