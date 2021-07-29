@@ -416,7 +416,7 @@ class Weibo(object):
                     with open(file_path, 'wb') as f:
                         f.write(downloaded.content)
 
-                if not sqlite_exist:
+                if (not sqlite_exist) and ('sqlite' in self.write_mode):
                     self.insert_file_sqlite(file_path, weibo_id, url,
                                             downloaded.content)
         except Exception as e:
