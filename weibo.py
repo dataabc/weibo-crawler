@@ -9,13 +9,13 @@ import logging
 import logging.config
 import math
 import os
-from pathlib import Path
 import random
 import sqlite3
 import sys
 import warnings
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from time import sleep
 
 import requests
@@ -295,9 +295,12 @@ class Weibo(object):
                             user_info[en_list[zh_list.index(
                                 card.get('item_name'))]] = card.get(
                                     'item_content', '')
-            user_info['statuses_count'] = info.get('statuses_count', 0)
-            user_info['followers_count'] = info.get('followers_count', 0)
-            user_info['follow_count'] = info.get('follow_count', 0)
+            user_info['statuses_count'] = self.string_to_int(
+                info.get('statuses_count', 0))
+            user_info['followers_count'] = self.string_to_int(
+                info.get('followers_count', 0))
+            user_info['follow_count'] = self.string_to_int(
+                info.get('follow_count', 0))
             user_info['description'] = info.get('description', '')
             user_info['profile_url'] = info.get('profile_url', '')
             user_info['profile_image_url'] = info.get('profile_image_url', '')
@@ -587,9 +590,11 @@ class Weibo(object):
         if isinstance(string, int):
             return string
         elif string.endswith(u'万+'):
-            string = int(string[:-2] + '0000')
+            string = string[:-2] + '0000'
         elif string.endswith(u'万'):
-            string = int(string[:-1] + '0000')
+            string = float(string[:-1]) * 10000
+        elif string.endswith(u'亿'):
+            string = float(string[:-1]) * 100000000
         return int(string)
 
     def standardize_date(self, created_at):
@@ -755,7 +760,8 @@ class Weibo(object):
         if weibo['comments_count'] == 0:
             return
 
-        logger.info(u'正在下载评论 微博id:{id}正文:{text}'.format(id=weibo['id'],text=weibo['text']))
+        logger.info(u'正在下载评论 微博id:{id}正文:{text}'.format(id=weibo['id'],
+                                                        text=weibo['text']))
         self._get_weibo_comments_cookie(weibo, 0, max_count, None,
                                         on_downloaded)
 
@@ -918,8 +924,8 @@ class Weibo(object):
                                             '"的' if self.query else '',
                                             '-' * 30))
                                     return True
-                            if (not self.filter) or ('retweet'
-                                                     not in wb.keys()):
+                            if (not self.filter) or (
+                                    'retweet' not in wb.keys()):
                                 self.weibo.append(wb)
                                 self.weibo_id_list.append(wb['id'])
                                 self.got_count += 1
