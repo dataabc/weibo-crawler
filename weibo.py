@@ -21,7 +21,6 @@ from time import sleep
 import requests
 from lxml import etree
 from requests.adapters import HTTPAdapter
-from requests.api import request
 from tqdm import tqdm
 
 warnings.filterwarnings("ignore")
@@ -968,6 +967,8 @@ class Weibo(object):
                 if k not in ['user_id', 'screen_name', 'retweet']:
                     if 'unicode' in str(type(v)):
                         v = v.encode('utf-8')
+                    if k == 'id':
+                        v = str(v) + '\t'
                     wb[k] = v
             if not self.filter:
                 if w.get('retweet'):
@@ -975,6 +976,8 @@ class Weibo(object):
                     for k2, v2 in w['retweet'].items():
                         if 'unicode' in str(type(v2)):
                             v2 = v2.encode('utf-8')
+                        if k2 == 'id':
+                            v2 = str(v2) + '\t'
                         wb['retweet_' + k2] = v2
                 else:
                     wb['is_original'] = True
