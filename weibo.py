@@ -314,7 +314,7 @@ class Weibo(object):
             self.user_to_database()
             return user
         else:
-            logger.info(u"被ban了")
+            logger.info(u"被ban了 或者 user_id_list参数错误。")
             sys.exit()
 
     def get_long_weibo(self, id):
