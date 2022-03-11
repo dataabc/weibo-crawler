@@ -168,7 +168,7 @@ class Weibo(object):
                          params=params,
                          headers=self.headers,
                          verify=False)
-        return r.json()
+        return r.json(), r.status_code
 
     def get_weibo_json(self, page):
         """获取网页中微博json数据"""
@@ -180,7 +180,7 @@ class Weibo(object):
             'containerid': '107603' + str(self.user_config['user_id'])
         }
         params['page'] = page
-        js = self.get_json(params)
+        js, _ = self.get_json(params)
         return js
 
     def user_to_csv(self):
@@ -263,7 +263,12 @@ class Weibo(object):
     def get_user_info(self):
         """获取用户信息"""
         params = {'containerid': '100505' + str(self.user_config['user_id'])}
-        js = self.get_json(params)
+        # TODO 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
+        sleep(random.randint(6, 10))
+        js, status_code = self.get_json(params)
+        if status_code != 200:
+            logger.info(u"被ban了，需要等待一段时间")
+            sys.exit()
         if js['ok']:
             info = js['data']['userInfo']
             user_info = OrderedDict()
@@ -284,7 +289,7 @@ class Weibo(object):
             ]
             for i in en_list:
                 user_info[i] = ''
-            js = self.get_json(params)
+            js, _ = self.get_json(params)
             if js['ok']:
                 cards = js['data']['cards']
                 if isinstance(cards, list) and len(cards) > 1:
@@ -312,10 +317,11 @@ class Weibo(object):
             user = self.standardize_info(user_info)
             self.user = user
             self.user_to_database()
-            return user
+            return 0
         else:
-            logger.info(u"被ban了 或者 user_id_list参数错误。")
-            sys.exit()
+            logger.info(u"user_id_list中 {} id出错".format(self.user_config['user_id']))
+            return -1
+
 
     def get_long_weibo(self, id):
         """获取长微博"""
@@ -780,7 +786,6 @@ class Weibo(object):
         params = {"mid": id}
         if max_id:
             params["max_id"] = max_id
-
         url = "https://m.weibo.cn/comments/hotflow?max_id_type=0"
         req = requests.get(
             url,
@@ -1256,7 +1261,6 @@ class Weibo(object):
             else:
                 w['retweet_id'] = ''
             weibo_list.append(w)
-
         max_count = self.comment_max_download_count
         download_comment = (self.download_comment and max_count > 0)
 
@@ -1525,7 +1529,9 @@ class Weibo(object):
     def get_pages(self):
         """获取全部微博"""
         try:
-            self.get_user_info()
+            # 用户id不可用
+            if(self.get_user_info() != 0):
+                return
             self.print_user_info()
             since_date = datetime.strptime(self.user_config['since_date'],
                                            '%Y-%m-%d')
