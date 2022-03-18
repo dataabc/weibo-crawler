@@ -918,10 +918,16 @@ class Weibo(object):
                 weibos = js['data']['cards']
                 if self.query:
                     weibos = weibos[0]['card_group']
+                # 如果需要检查cookie，在循环第一个人的时候，就要看看仅自己可见的信息有没有，要是没有直接报错
                 for w in weibos:
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
+                            if const.CHECK_COOKIE['CHECK'] and (not const.CHECK_COOKIE['CHECKED']) and wb['text'] == const.CHECK_COOKIE['HIDDEN_WEIBO'] + ' ':
+                                const.CHECK_COOKIE['CHECKED'] = True
+                                logger.info('cookie检查通过')
+                                if const.CHECK_COOKIE['EXIT_AFTER_CHECK']:
+                                    return True
                             if wb['id'] in self.weibo_id_list:
                                 continue
                             created_at = datetime.strptime(
@@ -938,6 +944,10 @@ class Weibo(object):
                                     csvutil.update_last_weibo_id(wb['user_id'], wb['id'], self.user_csv_file_path)
                                     self.first_crawler = False
                                 if str(wb['id']) == self.last_weibo_id:
+                                    if const.CHECK_COOKIE['CHECK'] and (not const.CHECK_COOKIE['CHECKED']):
+                                        # 已经爬取过最新的了，只是没检查到cookie，一旦检查通过，直接放行
+                                        const.CHECK_COOKIE['EXIT_AFTER_CHECK'] = True
+                                        continue
                                     if self.last_weibo_id == self.latest_weibo_id:
                                         logger.info('{} 用户没有发新微博'.format(self.user['screen_name']))
                                     else:
@@ -960,9 +970,14 @@ class Weibo(object):
                                 self.weibo.append(wb)
                                 self.weibo_id_list.append(wb['id'])
                                 self.got_count += 1
-                                self.print_weibo(wb)
+                                # 这里是系统日志输出，尽量别太杂
+                                logger.info('已获取用户 {} 的微博，内容为 {}'.format(self.user['screen_name'], wb['text']))
+                                # self.print_weibo(wb)
                             else:
                                 logger.info(u'正在过滤转发微博')
+                if const.CHECK_COOKIE['CHECK'] and not const.CHECK_COOKIE['CHECKED']:
+                    logger.warning('经检查，cookie无效，系统退出')
+                    sys.exit()
             else:
                 return True
             logger.info(u'{}已获取{}({})的第{}页微博{}'.format(
