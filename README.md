@@ -576,10 +576,21 @@ txt文件名格式可以参考[程序设置](#3程序设置)中的设置user_id_
 ![](https://picture.cognize.me/cognize/github/weibospider/cookie3.png)
 
 ## 如何检测cookie是否有效（可选）
-因为对于大部分微博用户，本程序添不添加cookie，cookie正确与否都可以运行并获取微博信息，所以使用者很难通过观察检测cookie是否有效。目前有两种方式检测cookie值是否有效，大家从下面两种方法中选择一种就可以：<br>
-1.爬取特定用户，将user_id设置为2218081121，即
-```
-"user_id_list": ["2218081121"],
-```
-运行程序，如果程序提示cookie无效等类似信息，说明cookie无效，否则cookie是有效的；<br>
-2.将获取的cookie填到[cookie版](https://github.com/dataabc/weiboSpider)的config.json中，运行程序。如果程序提示cookie无效等相关信息，说明cookie无效，否则cookie是有效的。因为cookie版中cookie为必需项，且**cookie版与免cookie版的cookie通用**。
+
+本程序cookie检查的逻辑是：使用cookie来源账号发布**限定范围的**微博，若cookie可用，则可以读取到该微博，否则读取不到。
+
+**操作方法**
+
+1. 使用cookie的来源账号发布一条微博，该账号和微博需要满足以下条件：
+
+   - 该微博必须是**非公开可见**的，后续需要根据可见性判断cookie是否有效；
+
+   - 该微博需要是最近5条微博，不能在发布测试用微博内容后又发很多新微博；
+
+   - 在`config.json`配置中的since_date之后，该账号必须有大于9条微博。
+
+2. 将`const.py`文件中`'CHECK': False`中的`False`改为`True`，`'HIDDEN_WEIBO': '微博内容'`中的`微博内容`改为你发的限定范围的微博。
+
+3. 将提供cookie的微博id放置在`config.json`文件中`"user_id_list"`设置项数组中的第一个。例如提供cookie的微博id为`123456`，则`"user_id_list"`设置为`"user_id_list":["123456", "<其余id...>"]`。
+
+注：本方法也将会抓取提供cookie账号的微博内容。
