@@ -4,7 +4,7 @@ import const
 
 
 def insert_or_update_user(logger, headers, result_data, file_path):
-    """插入或更新用户csv。不存在则插入，最新抓取微博id不填，存在则先不动，返回已抓取最新微博id"""
+    """插入或更新用户csv。不存在则插入，最新抓取微博id不填，存在则先不动，返回已抓取最新微博id和日期"""
     first_write = True if not os.path.isfile(file_path) else False
     if os.path.isfile(file_path):
         # 文件已存在，直接查看有没有，有就直接return了
@@ -24,14 +24,14 @@ def insert_or_update_user(logger, headers, result_data, file_path):
     return ''
 
 
-def update_last_weibo_id(userid, new_last_weibo_id, file_path):
+def update_last_weibo_id(userid, new_last_weibo_msg, file_path):
     """更新用户csv中的最新微博id"""
     lines = []
     with open(file_path, 'r', encoding='utf-8') as f:
         for line in f:
             if line.split(',')[0] == str(userid):
                 line = line.replace(line.split(
-                    ',')[len(line.split(',')) - 1], str(new_last_weibo_id) + '\n')
+                    ',')[len(line.split(',')) - 1], new_last_weibo_msg + '\n')
             lines.append(line)
         f.close()
     with open(file_path, 'w', encoding='utf-8') as f:

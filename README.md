@@ -594,3 +594,9 @@ txt文件名格式可以参考[程序设置](#3程序设置)中的设置user_id_
 3. 将提供cookie的微博id放置在`config.json`文件中`"user_id_list"`设置项数组中的第一个。例如提供cookie的微博id为`123456`，则`"user_id_list"`设置为`"user_id_list":["123456", "<其余id...>"]`。
 
 注：本方法也将会抓取提供cookie账号的微博内容。
+
+在间歇运行程序时，cookie无效会导致程序不能按照预设目标执行，因此可以打开cookie通知功能。本项目使用开源项目[pushdeer](https://github.com/easychen/pushdeer)进行通知，在使用前用户需要申请push_key，具体可查看官网了解。打开方法为：
+
+1. 在`const.py`文件中，将`'NOTIFY': False`中的`False`设为`True`；
+2. 将`'PUSH_KEY': ''`的`''`替换为`'<你的push_key>'`
+

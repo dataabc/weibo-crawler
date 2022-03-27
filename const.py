@@ -22,3 +22,7 @@ const.CHECK_COOKIE = {
     'EXIT_AFTER_CHECK': False,  # 这里不要动，append模式中已完成增量微博抓取，仅等待cookie检查的标志位
     'HIDDEN_WEIBO': '微博内容',  # 你可能发现平台会自动给你的微博自动加个空格，但这里你不用加空格
 }
+const.NOTIFY = {
+    'NOTIFY': False,  # 是否通知
+    'PUSH_KEY': '',  # 这里使用push_deer做通知，填入pushdeer的pushkey
+}
