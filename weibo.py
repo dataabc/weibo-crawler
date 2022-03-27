@@ -25,6 +25,8 @@ from requests.adapters import HTTPAdapter
 from tqdm import tqdm
 
 from util import csvutil
+from util.dateutil import convert_to_days_ago
+from util.notify import push_deer
 
 warnings.filterwarnings("ignore")
 
@@ -204,15 +206,16 @@ class Weibo(object):
         result_headers = [
             '用户id', '昵称', '性别', '生日', '所在地', '学习经历', '公司', '注册时间', '阳光信用',
             '微博数', '粉丝数', '关注数', '简介', '主页', '头像', '高清头像', '微博等级', '会员等级',
-            '是否认证', '认证类型', '认证信息', '上次记录微博id'
+            '是否认证', '认证类型', '认证信息', '上次记录微博信息'
         ]
         result_data = [[
             v.encode('utf-8') if 'unicode' in str(type(v)) else v
             for v in self.user.values()
         ]]
-        # 已经插入信息的用户无需重复插入，返回的id是\n或者具体的id
-        self.last_weibo_id = csvutil.insert_or_update_user(logger, result_headers, result_data, file_path)
-
+        # 已经插入信息的用户无需重复插入，返回的id是空字符串或微博id 发布日期%Y-%m-%d
+        last_weibo_msg = csvutil.insert_or_update_user(logger, result_headers, result_data, file_path)
+        self.last_weibo_id = last_weibo_msg.split(' ')[0] if last_weibo_msg else ''
+        self.last_weibo_date = last_weibo_msg.split(' ')[1] if last_weibo_msg else self.user_config['since_date']
     def user_to_mongodb(self):
         """将爬取的用户信息写入MongoDB数据库"""
         user_list = [self.user]
@@ -276,7 +279,7 @@ class Weibo(object):
         """获取用户信息"""
         params = {'containerid': '100505' + str(self.user_config['user_id'])}
         # TODO 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
-        sleep(random.randint(6, 10))
+        sleep(random.randint(10, 20))
         js, status_code = self.get_json(params)
         if status_code != 200:
             logger.info(u"被ban了，需要等待一段时间")
@@ -941,7 +944,7 @@ class Weibo(object):
                                 if self.first_crawler and not self.is_pinned_weibo(w):
                                     # 置顶微博的具体时间不好判定，将非置顶微博当成最新微博，写入上次抓取id的csv
                                     self.latest_weibo_id = str(wb['id'])
-                                    csvutil.update_last_weibo_id(wb['user_id'], wb['id'], self.user_csv_file_path)
+                                    csvutil.update_last_weibo_id(wb['user_id'], str(wb['id']) + ' ' + wb['created_at'], self.user_csv_file_path)
                                     self.first_crawler = False
                                 if str(wb['id']) == self.last_weibo_id:
                                     if const.CHECK_COOKIE['CHECK'] and (not const.CHECK_COOKIE['CHECKED']):
@@ -953,6 +956,10 @@ class Weibo(object):
                                     else:
                                         logger.info('增量获取微博完毕，将最新微博id从 {} 变更为 {}'.format(self.last_weibo_id, self.latest_weibo_id))
                                     return True
+                                # 上一次标记的微博被删了，就把上一条微博时间记录推前两天，多抓点评论或者微博内容修改
+                                # TODO 更加合理的流程是，即使读取到上次更新微博id，也抓取增量评论，由此获得更多的评论
+                                since_date = datetime.strptime(
+                                convert_to_days_ago(self.last_weibo_date, 2), '%Y-%m-%d')
                             if created_at < since_date:
                                 if self.is_pinned_weibo(w):
                                     continue
@@ -977,6 +984,8 @@ class Weibo(object):
                                 logger.info(u'正在过滤转发微博')
                 if const.CHECK_COOKIE['CHECK'] and not const.CHECK_COOKIE['CHECKED']:
                     logger.warning('经检查，cookie无效，系统退出')
+                    if const.NOTIFY['NOTIFY']:
+                        push_deer('经检查，cookie无效，系统退出')
                     sys.exit()
             else:
                 return True
