@@ -636,7 +636,8 @@ class Weibo(object):
             created_at = created_at.replace('+0800 ', '')
             temp = datetime.strptime(created_at, '%c')
             created_at = datetime.strftime(temp, '%Y-%m-%d')
-        return created_at
+            full_created_at = datetime.strftime(temp, '%Y-%m-%d %H:%M:%S')
+        return created_at, full_created_at
 
     def standardize_info(self, weibo):
         """标准化信息，去除乱码"""
@@ -755,8 +756,8 @@ class Weibo(object):
                         retweet = self.parse_weibo(retweeted_status)
                 else:
                     retweet = self.parse_weibo(retweeted_status)
-                retweet['created_at'] = self.standardize_date(
-                    retweeted_status['created_at'])
+                retweet['created_at'], retweet['full_created_at'] = self.standardize_date(
+                    retweeted_status['created_at']) 
                 weibo['retweet'] = retweet
             else:  # 原创
                 if is_long:
@@ -765,7 +766,7 @@ class Weibo(object):
                         weibo = self.parse_weibo(weibo_info)
                 else:
                     weibo = self.parse_weibo(weibo_info)
-            weibo['created_at'] = self.standardize_date(
+            weibo['created_at'], weibo['full_created_at'] = self.standardize_date(
                 weibo_info['created_at'])
             return weibo
         except Exception as e:
@@ -959,9 +960,12 @@ class Weibo(object):
                                 # 上一次标记的微博被删了，就把上一条微博时间记录推前两天，多抓点评论或者微博内容修改
                                 # TODO 更加合理的流程是，即使读取到上次更新微博id，也抓取增量评论，由此获得更多的评论
                                 since_date = datetime.strptime(
-                                convert_to_days_ago(self.last_weibo_date, 2), '%Y-%m-%d')
+                                convert_to_days_ago(self.last_weibo_date, 1), '%Y-%m-%d')
                             if created_at < since_date:
                                 if self.is_pinned_weibo(w):
+                                    continue
+                                # 如果要检查还没有检查cookie，不能直接跳出
+                                elif const.CHECK_COOKIE['CHECK'] and (not const.CHECK_COOKIE['CHECKED']):
                                     continue
                                 else:
                                     logger.info(
@@ -1390,7 +1394,7 @@ class Weibo(object):
         sqlite_weibo["pics"] = weibo["pics"]
         sqlite_weibo["video_url"] = weibo["video_url"]
         sqlite_weibo["location"] = weibo["location"]
-        sqlite_weibo["created_at"] = weibo["created_at"]
+        sqlite_weibo["created_at"] = weibo["full_created_at"]
         sqlite_weibo["source"] = weibo["source"]
         sqlite_weibo["attitudes_count"] = weibo["attitudes_count"]
         sqlite_weibo["comments_count"] = weibo["comments_count"]
@@ -1702,7 +1706,11 @@ def main():
         config = get_config()
         wb = Weibo(config)
         wb.start()  # 爬取微博信息
+        if const.NOTIFY['NOTIFY']:
+            push_deer('更新了一次微博')
     except Exception as e:
+        if const.NOTIFY['NOTIFY']:
+            push_deer('weibo-crawler运行出错，错误为{}'.format(e))
         logger.exception(e)
 
 
