@@ -620,23 +620,24 @@ class Weibo(object):
     def standardize_date(self, created_at):
         """标准化微博发布时间"""
         if u'刚刚' in created_at:
-            created_at = datetime.now().strftime('%Y-%m-%d')
+            ts = datetime.now()
         elif u'分钟' in created_at:
             minute = created_at[:created_at.find(u'分钟')]
             minute = timedelta(minutes=int(minute))
-            created_at = (datetime.now() - minute).strftime('%Y-%m-%d')
+            ts = datetime.now() - minute
         elif u'小时' in created_at:
             hour = created_at[:created_at.find(u'小时')]
             hour = timedelta(hours=int(hour))
-            created_at = (datetime.now() - hour).strftime('%Y-%m-%d')
+            ts = datetime.now() - hour
         elif u'昨天' in created_at:
             day = timedelta(days=1)
-            created_at = (datetime.now() - day).strftime('%Y-%m-%d')
+            ts = datetime.now() - day
         else:
             created_at = created_at.replace('+0800 ', '')
-            temp = datetime.strptime(created_at, '%c')
-            created_at = datetime.strftime(temp, '%Y-%m-%d')
-            full_created_at = datetime.strftime(temp, '%Y-%m-%d %H:%M:%S')
+            ts = datetime.strptime(created_at, '%c')
+
+        created_at = ts.strftime('%Y-%m-%d')
+        full_created_at = ts.strftime('%Y-%m-%d %H:%M:%S')
         return created_at, full_created_at
 
     def standardize_info(self, weibo):
@@ -1287,10 +1288,16 @@ class Weibo(object):
         else:
             info_list = self.weibo[wrote_count:]
         for w in info_list:
+            w['created_at'] = w['full_created_at']
+            del w['full_created_at']
+
             if 'retweet' in w:
-                w['retweet']['retweet_id'] = ''
-                retweet_list.append(w['retweet'])
-                w['retweet_id'] = w['retweet']['id']
+                r = w['retweet']
+                r['retweet_id'] = ''
+                r['created_at'] = r['full_created_at']
+                del r['full_created_at']
+                retweet_list.append(r)
+                w['retweet_id'] = r['id']
                 del w['retweet']
             else:
                 w['retweet_id'] = ''
