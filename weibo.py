@@ -40,6 +40,7 @@ logger = logging.getLogger('weibo')
 
 
 class Weibo(object):
+
     def __init__(self, config):
         """Weibo类初始化"""
         self.validate_config(config)
@@ -928,7 +929,10 @@ class Weibo(object):
                     if w['card_type'] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
-                            if const.CHECK_COOKIE['CHECK'] and (not const.CHECK_COOKIE['CHECKED']) and wb['text'] == const.CHECK_COOKIE['HIDDEN_WEIBO'] + ' ':
+                            if const.CHECK_COOKIE['CHECK'] and (
+                                    not const.CHECK_COOKIE['CHECKED']
+                            ) and wb['text'].startswith(
+                                    const.CHECK_COOKIE['HIDDEN_WEIBO']):
                                 const.CHECK_COOKIE['CHECKED'] = True
                                 logger.info('cookie检查通过')
                                 if const.CHECK_COOKIE['EXIT_AFTER_CHECK']:
@@ -941,9 +945,15 @@ class Weibo(object):
                                 self.user_config['since_date'], '%Y-%m-%d')
                             if const.MODE == 'append':
                                 # append模式下不会对置顶微博做任何处理
-                                if self.is_pinned_weibo(w):
+
+                                # 由于微博本身的调整，下面判断是否为置顶的代码已失效，默认所有用户第一条均为置顶
+                                # if self.is_pinned_weibo(w):
+                                #     continue
+                                if const.CHECK_COOKIE['GUESS_PIN']:
+                                    const.CHECK_COOKIE['GUESS_PIN'] = False
                                     continue
-                                if self.first_crawler and not self.is_pinned_weibo(w):
+
+                                if self.first_crawler:
                                     # 置顶微博的具体时间不好判定，将非置顶微博当成最新微博，写入上次抓取id的csv
                                     self.latest_weibo_id = str(wb['id'])
                                     csvutil.update_last_weibo_id(wb['user_id'], str(wb['id']) + ' ' + wb['created_at'], self.user_csv_file_path)
@@ -1593,12 +1603,14 @@ class Weibo(object):
         """获取全部微博"""
         try:
             # 用户id不可用
-            if(self.get_user_info() != 0):
+            if (self.get_user_info() != 0):
                 return
             logger.info('准备搜集 {} 的微博'.format(self.user['screen_name']))
-            if const.MODE == 'append' and ('first_crawler' not in self.__dict__ or self.first_crawler is False):
+            if const.MODE == 'append' and ('first_crawler' not in self.__dict__
+                                           or self.first_crawler is False):
                 # 本次运行的某用户首次抓取，用于标记最新的微博id
                 self.first_crawler = True
+                const.CHECK_COOKIE['GUESS_PIN'] = True
             since_date = datetime.strptime(self.user_config['since_date'],
                                            '%Y-%m-%d')
             today = datetime.strptime(str(date.today()), '%Y-%m-%d')

@@ -21,6 +21,7 @@ const.CHECK_COOKIE = {
     'CHECKED': False,  # 这里不要动，判断已检查了cookie的标志位
     'EXIT_AFTER_CHECK': False,  # 这里不要动，append模式中已完成增量微博抓取，仅等待cookie检查的标志位
     'HIDDEN_WEIBO': '微博内容',  # 你可能发现平台会自动给你的微博自动加个空格，但这里你不用加空格
+    'GUESS_PIN': False  # 这里不要动，因为微博取消了“置顶”字样的显示，因此默认猜测所有人第一条都是置顶
 }
 const.NOTIFY = {
     'NOTIFY': False,  # 是否通知
