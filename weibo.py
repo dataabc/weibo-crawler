@@ -10,6 +10,7 @@ import logging.config
 import math
 import os
 import random
+import re
 import sqlite3
 import sys
 import warnings
@@ -71,6 +72,10 @@ class Weibo(object):
         self.comment_max_download_count = config[
             "comment_max_download_count"
         ]  # 如果设置了下评论，每条微博评论数会限制在这个值内
+        self.download_repost = config["download_repost"]  # 1代表下载转发,0代表不下载
+        self.repost_max_download_count = config[
+            "repost_max_download_count"
+        ]  # 如果设置了下转发，每条微博转发数会限制在这个值内
         self.result_dir_name = config.get(
             "result_dir_name", 0
         )  # 结果目录名，取值为0或1，决定结果文件存储在用户昵称文件夹里还是用户id文件夹里
@@ -120,6 +125,7 @@ class Weibo(object):
             "original_video_download",
             "retweet_video_download",
             "download_comment",
+            "download_repost",
         ]
         for argument in argument_list:
             if config[argument] != 0 and config[argument] != 1:
@@ -169,10 +175,18 @@ class Weibo(object):
 
         comment_max_count = config["comment_max_download_count"]
         if not isinstance(comment_max_count, int):
-            logger.warning("最大下载评论数应为整数类型")
+            logger.warning("最大下载评论数 (comment_max_download_count) 应为整数类型")
             sys.exit()
         elif comment_max_count < 0:
-            logger.warning("最大下载数应该为正整数")
+            logger.warning("最大下载评论数 (comment_max_download_count) 应该为正整数")
+            sys.exit()
+
+        repost_max_count = config["repost_max_download_count"]
+        if not isinstance(repost_max_count, int):
+            logger.warning("最大下载转发数 (repost_max_download_count) 应为整数类型")
+            sys.exit()
+        elif repost_max_count < 0:
+            logger.warning("最大下载转发数 (repost_max_download_count) 应该为正整数")
             sys.exit()
 
     def is_date(self, since_date):
@@ -315,7 +329,7 @@ class Weibo(object):
         """获取用户信息"""
         params = {"containerid": "100505" + str(self.user_config["user_id"])}
         # TODO 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
-        sleep(random.randint(10, 20))
+        sleep(random.randint(60, 180))
         js, status_code = self.get_json(params)
         if status_code != 200:
             logger.info("被ban了，需要等待一段时间")
@@ -383,7 +397,7 @@ class Weibo(object):
             url = "https://m.weibo.cn/detail/%s" % id
             html = requests.get(url, headers=self.headers, verify=False).text
             html = html[html.find('"status":') :]
-            html = html[: html.rfind('"hotScheme"')]
+            html = html[: html.rfind('"call"')]
             html = html[: html.rfind(",")]
             html = "{" + html + "}"
             js = json.loads(html, strict=False)
@@ -836,9 +850,23 @@ class Weibo(object):
             return
 
         logger.info(
-            "正在下载评论 微博id:{id}正文:{text}".format(id=weibo["id"], text=weibo["text"])
+            "正在下载评论 微博id:{id}".format(id=weibo["id"])
         )
         self._get_weibo_comments_cookie(weibo, 0, max_count, None, on_downloaded)
+
+    def get_weibo_reposts(self, weibo, max_count, on_downloaded):
+        """
+        :weibo standardlized weibo
+        :max_count 最大允许下载数
+        :on_downloaded 下载完成时的实例方法回调
+        """
+        if weibo["reposts_count"] == 0:
+            return
+
+        logger.info(
+            "正在下载转发 微博id:{id}".format(id=weibo["id"])
+        )
+        self._get_weibo_reposts_cookie(weibo, 0, max_count, 1, on_downloaded)
 
     def _get_weibo_comments_cookie(
         self, weibo, cur_count, max_count, max_id, on_downloaded
@@ -874,13 +902,13 @@ class Weibo(object):
 
         if error:
             # 最大好像只能有50条 TODO: improvement
-            self._get_weibo_comments_nocookie(weibo, 0, max_count, 0, on_downloaded)
+            self._get_weibo_comments_nocookie(weibo, 0, max_count, 1, on_downloaded)
             return
 
         data = json.get("data")
         if not data:
             # 新接口没有抓取到的老接口也试一下
-            self._get_weibo_comments_nocookie(weibo, 0, max_count, 0, on_downloaded)
+            self._get_weibo_comments_nocookie(weibo, 0, max_count, 1, on_downloaded)
             return
 
         comments = data.get("data")
@@ -913,7 +941,7 @@ class Weibo(object):
         :weibo standardlized weibo
         :cur_count  已经下载的评论数
         :max_count 最大允许下载数
-        :max_id 微博返回的max_id参数
+        :page 下载的页码 从 1 开始
         :on_downloaded 下载完成时的实例方法回调
         """
         if cur_count >= max_count:
@@ -927,8 +955,7 @@ class Weibo(object):
         try:
             json = req.json()
         except Exception as e:
-            # 没有cookie会抓取失败
-            logger.info("未能抓取评论 微博id:{id} 内容{text}".format(id=id, text=weibo["text"]))
+            logger.warning("未能抓取完整评论 微博id: {id}".format(id=id))
             return
 
         data = json.get("data")
@@ -955,11 +982,69 @@ class Weibo(object):
         if req_page == 0:
             return
 
-        if page >= req_page:
+        if page > req_page:
             return
         self._get_weibo_comments_nocookie(
             weibo, cur_count, max_count, page, on_downloaded
         )
+
+    def _get_weibo_reposts_cookie(
+        self, weibo, cur_count, max_count, page, on_downloaded
+    ):
+        """
+        :weibo standardlized weibo
+        :cur_count  已经下载的转发数
+        :max_count 最大允许下载数
+        :page 下载的页码 从 1 开始
+        :on_downloaded 下载完成时的实例方法回调
+        """
+        if cur_count >= max_count:
+            return
+        id = weibo["id"]
+        url = "https://m.weibo.cn/api/statuses/repostTimeline"
+        params = {"id": id, "page": page}
+        req = requests.get(
+            url,
+            params=params,
+            headers=self.headers,
+        )
+
+        json = None
+        try:
+            json = req.json()
+        except Exception as e:
+            logger.warning(
+                "未能抓取完整转发 微博id: {id}".format(id=id)
+            )
+            return
+
+        data = json.get("data")
+        if not data:
+            return
+        reposts = data.get("data")
+        count = len(reposts)
+        if count == 0:
+            # 没有了可以直接跳出递归
+            return
+
+        if on_downloaded:
+            on_downloaded(weibo, reposts)
+
+        cur_count += count
+        page += 1
+
+        # 随机睡眠一下
+        if page % 2 == 0:
+            sleep(random.randint(2, 5))
+
+        req_page = data.get("max")
+
+        if req_page == 0:
+            return
+
+        if page > req_page:
+            return
+        self._get_weibo_reposts_cookie(weibo, cur_count, max_count, page, on_downloaded)
 
     def is_pinned_weibo(self, info):
         """判断微博是否为置顶微博"""
@@ -1431,16 +1516,29 @@ class Weibo(object):
             else:
                 w["retweet_id"] = ""
             weibo_list.append(w)
-        max_count = self.comment_max_download_count
-        download_comment = self.download_comment and max_count > 0
+
+        comment_max_count = self.comment_max_download_count
+        repost_max_count = self.comment_max_download_count
+        download_comment = self.download_comment and comment_max_count > 0
+        download_repost = self.download_repost and repost_max_count > 0
 
         count = 0
         for weibo in weibo_list:
             self.sqlite_insert_weibo(con, weibo)
             if (download_comment) and (weibo["comments_count"] > 0):
-                self.get_weibo_comments(weibo, max_count, self.sqlite_insert_comments)
+                self.get_weibo_comments(
+                    weibo, comment_max_count, self.sqlite_insert_comments
+                )
                 count += 1
                 # 为防止被ban抓取一定数量的评论后随机睡3到6秒
+                if count % 20:
+                    sleep(random.randint(3, 6))
+            if (download_repost) and (weibo["reposts_count"] > 0):
+                self.get_weibo_reposts(
+                    weibo, repost_max_count, self.sqlite_insert_reposts
+                )
+                count += 1
+                # 为防止被ban抓取一定数量的转发后随机睡3到6秒
                 if count % 20:
                     sleep(random.randint(3, 6))
 
@@ -1456,6 +1554,16 @@ class Weibo(object):
         for comment in comments:
             data = self.parse_sqlite_comment(comment, weibo)
             self.sqlite_insert(con, data, "comments")
+
+        con.close()
+
+    def sqlite_insert_reposts(self, weibo, reposts):
+        if not reposts or len(reposts) == 0:
+            return
+        con = self.get_sqlite_connection()
+        for repost in reposts:
+            data = self.parse_sqlite_repost(repost, weibo)
+            self.sqlite_insert(con, data, "reposts")
 
         con.close()
 
@@ -1475,12 +1583,40 @@ class Weibo(object):
         self._try_get_value(
             "user_avatar_url", "avatar_hd", sqlite_comment, comment["user"]
         )
-        sqlite_comment["text"] = comment["text"]
+        if self.remove_html_tag:
+            sqlite_comment["text"] = re.sub('<[^<]+?>', '', comment["text"]).replace('\n', '').strip()
+        else:
+            sqlite_comment["text"] = comment["text"]
+        
         sqlite_comment["pic_url"] = ""
         if comment.get("pic"):
             sqlite_comment["pic_url"] = comment["pic"]["large"]["url"]
         self._try_get_value("like_count", "like_count", sqlite_comment, comment)
         return sqlite_comment
+
+    def parse_sqlite_repost(self, repost, weibo):
+        if not repost:
+            return
+        sqlite_repost = OrderedDict()
+        sqlite_repost["id"] = repost["id"]
+
+        self._try_get_value("bid", "bid", sqlite_repost, repost)
+        self._try_get_value("created_at", "created_at", sqlite_repost, repost)
+        sqlite_repost["weibo_id"] = weibo["id"]
+
+        sqlite_repost["user_id"] = repost["user"]["id"]
+        sqlite_repost["user_screen_name"] = repost["user"]["screen_name"]
+        self._try_get_value(
+            "user_avatar_url", "profile_image_url", sqlite_repost, repost["user"]
+        )
+        text = repost.get("raw_text")
+        if text:
+            text = text.split("//", 1)[0]
+        if text is None or text == "" or text == "Repost":
+            text = "转发微博"
+        sqlite_repost["text"] = text
+        self._try_get_value("like_count", "attitudes_count", sqlite_repost, repost)
+        return sqlite_repost
 
     def _try_get_value(self, source_name, target_name, dict, json):
         dict[source_name] = ""
@@ -1628,7 +1764,6 @@ class Weibo(object):
                     ,url text
                 );
 
-
                 CREATE TABLE IF NOT EXISTS comments (
                     id varchar(20) NOT NULL
                     ,bid varchar(20) NOT NULL
@@ -1644,7 +1779,19 @@ class Weibo(object):
                     ,PRIMARY KEY (id)
                 );
 
-                 """
+                CREATE TABLE IF NOT EXISTS reposts (
+                    id varchar(20) NOT NULL
+                    ,bid varchar(20) NOT NULL
+                    ,weibo_id varchar(32) NOT NULL
+                    ,user_id varchar(20) NOT NULL
+                    ,created_at varchar(20)
+                    ,user_screen_name varchar(64) NOT NULL
+                    ,user_avatar_url text
+                    ,text varchar(1000)
+                    ,like_count integer
+                    ,PRIMARY KEY (id)
+                );
+                """
         return create_sql
 
     def update_user_config_file(self, user_config_file_path):
