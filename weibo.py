@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import re
 import codecs
 import copy
 import csv
@@ -18,6 +19,7 @@ from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from time import sleep
+from matplotlib.pyplot import text
 
 import requests
 from lxml import etree
@@ -662,6 +664,18 @@ class Weibo(object):
         weibo['id'] = int(weibo_info['id'])
         weibo['bid'] = weibo_info['bid']
         text_body = weibo_info['text']
+
+        """删除特定emoji 防止解析失败 出现乱码"""
+        def deEmojify(text):
+            regrex_pattern = re.compile(pattern="["
+                                                u"\U0001F600-\U0001F64F"  # emoticons
+                                                u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                                                u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                                                u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                                                u"\U0001F19A"
+                                                "]+", flags=re.UNICODE)
+            return regrex_pattern.sub(r'', text)
+        text_body = deEmojify(text_body)
         selector = etree.HTML(text_body)
         if self.remove_html_tag:
             weibo['text'] = selector.xpath('string(.)')
