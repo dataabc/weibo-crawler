@@ -212,7 +212,7 @@ class Weibo(object):
                 "page_type": "searchall",
             }
             if self.query
-            else {"containerid": "107603" + str(self.user_config["user_id"])}
+            else {"containerid": "230413" + str(self.user_config["user_id"])}
         )
         params["page"] = page
         js, _ = self.get_json(params)
@@ -1049,8 +1049,8 @@ class Weibo(object):
     def is_pinned_weibo(self, info):
         """判断微博是否为置顶微博"""
         weibo_info = info["mblog"]
-        title = weibo_info.get("title")
-        if title and title.get("text") == "置顶":
+        isTop = weibo_info.get("isTop")
+        if isTop:
             return True
         else:
             return False
