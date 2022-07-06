@@ -1,4 +1,4 @@
-lxml==4.8.0
+lxml==4.9.1
 pymongo==3.7.2
 pymysql==1.0.2
 requests==2.22.0
