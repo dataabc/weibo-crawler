@@ -1061,10 +1061,12 @@ class Weibo(object):
             js = self.get_weibo_json(page)
             if js["ok"]:
                 weibos = js["data"]["cards"]
+                
                 if self.query:
                     weibos = weibos[0]["card_group"]
                 # 如果需要检查cookie，在循环第一个人的时候，就要看看仅自己可见的信息有没有，要是没有直接报错
                 for w in weibos:
+                    w = w.get("card_group",w)
                     if w["card_type"] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
