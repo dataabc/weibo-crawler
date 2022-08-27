@@ -1054,17 +1054,25 @@ class Weibo(object):
             return True
         else:
             return False
+    
 
     def get_one_page(self, page):
         """获取一页的全部微博"""
         try:
             js = self.get_weibo_json(page)
+            import json
+            with open('js.json','w') as f:
+                #写入方式1，等价于下面这行
+                json.dump(js,f) #把列表numbers内容写入到"list.json"文件中
             if js["ok"]:
                 weibos = js["data"]["cards"]
+                
                 if self.query:
                     weibos = weibos[0]["card_group"]
                 # 如果需要检查cookie，在循环第一个人的时候，就要看看仅自己可见的信息有没有，要是没有直接报错
                 for w in weibos:
+                    if w["card_type"] == 11:
+                        w = w.get("card_group",[0])[0] or w
                     if w["card_type"] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
@@ -1165,6 +1173,7 @@ class Weibo(object):
                                 # self.print_weibo(wb)
                             else:
                                 logger.info("正在过滤转发微博")
+                    
                 if const.CHECK_COOKIE["CHECK"] and not const.CHECK_COOKIE["CHECKED"]:
                     logger.warning("经检查，cookie无效，系统退出")
                     if const.NOTIFY["NOTIFY"]:
