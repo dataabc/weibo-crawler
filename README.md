@@ -277,7 +277,8 @@ pip install -r requirements.txt
         "user": "root",
         "password": "123456",
         "charset": "utf8mb4"
-    }
+    },
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]"
 }
 ```
 
@@ -470,6 +471,11 @@ cookie为可选参数，即可填可不填，具体区别见[添加cookie与不�
 **设置mysql_config（可选）**
 
 mysql_config控制mysql参数配置。如果你不需要将结果信息写入mysql，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mysql且config.json文件中mysql_config的配置与你的mysql配置不一样，请将该值改成你自己mysql中的参数配置。
+
+**设置mongodb_URI（可选）**
+
+mongodb_URI是mongodb的连接字符串。如果你不需要将结果信息写入mongodb，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mongodb，则需要配置为[完整的mongodb URI](https://www.mongodb.com/docs/manual/reference/connection-string/)。
+
 **设置start_page（可选）**
 
 start_page为爬取微博的初始页数，默认参数为1，即从所爬取用户的当前第一页微博内容开始爬取。
