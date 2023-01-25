@@ -25,5 +25,6 @@
         "user": "root",
         "password": "123456",
         "charset": "utf8mb4"
-    }
+    },
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]"
 }

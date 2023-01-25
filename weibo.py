@@ -83,6 +83,7 @@ class Weibo(object):
         user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.111 Safari/537.36"
         self.headers = {"User_Agent": user_agent, "Cookie": cookie}
         self.mysql_config = config.get("mysql_config")  # MySQL数据库连接配置，可以不填
+        self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
         user_id_list = config["user_id_list"]
         query_list = config.get("query_list") or []
         if isinstance(query_list, str):
@@ -1366,7 +1367,7 @@ class Weibo(object):
         try:
             from pymongo import MongoClient
 
-            client = MongoClient()
+            client = MongoClient(self.mongodb_URI)
             db = client["weibo"]
             collection = db[collection]
             if len(self.write_mode) > 1:
