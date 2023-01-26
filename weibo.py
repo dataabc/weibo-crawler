@@ -724,7 +724,7 @@ class Weibo(object):
         weibo["id"] = int(weibo_info["id"])
         weibo["bid"] = weibo_info["bid"]
         text_body = weibo_info["text"]
-        selector = etree.HTML(text_body)
+        selector = etree.HTML(f"{text_body}<hr>" if text_body.isspace() else text_body)
         if self.remove_html_tag:
             weibo["text"] = selector.xpath("string(.)")
         else:
