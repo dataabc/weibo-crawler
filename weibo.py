@@ -85,6 +85,8 @@ class Weibo(object):
         self.mysql_config = config.get("mysql_config")  # MySQL数据库连接配置，可以不填
         self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
         user_id_list = config["user_id_list"]
+        # 避免卡住
+        random.shuffle(user_id_list)
         query_list = config.get("query_list") or []
         if isinstance(query_list, str):
             query_list = query_list.split(",")
@@ -329,8 +331,14 @@ class Weibo(object):
     def get_user_info(self):
         """获取用户信息"""
         params = {"containerid": "100505" + str(self.user_config["user_id"])}
+
         # TODO 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
-        sleep(random.randint(60, 180))
+        sleep_time = random.randint(30, 60)
+        # 添加log，否则一般用户不知道以为程序卡了
+        logger.info(f"""短暂sleep {sleep_time}秒，避免被ban""")        
+        sleep(sleep_time)
+        logger.info("sleep结束")        
+
         js, status_code = self.get_json(params)
         if status_code != 200:
             logger.info("被ban了，需要等待一段时间")
@@ -467,40 +475,48 @@ class Weibo(object):
         try:
 
             file_exist = os.path.isfile(file_path)
-            sqlite_exist = ("sqlite" in self.write_mode) and (
-                self.sqlite_exist_file(file_path)
-            )
+            need_download = (not file_exist)
+            sqlite_exist = False
+            if "sqlite" in self.write_mode:
+                sqlite_exist = self.sqlite_exist_file(file_path)
+                if not sqlite_exist: 
+                    need_download = True
 
-            need_download = (not file_exist) or (not sqlite_exist)
-            if need_download:
-                s = requests.Session()
-                s.mount(url, HTTPAdapter(max_retries=5))
-                flag = True
-                try_count = 0
-                while flag and try_count < 5:
-                    flag = False
-                    downloaded = s.get(
-                        url, headers=self.headers, timeout=(5, 10), verify=False
-                    )
-                    try_count += 1
-                    if (
-                        url.endswith(("jpg", "jpeg"))
-                        and not downloaded.content.endswith(b"\xff\xd9")
-                    ) or (
-                        url.endswith("png")
-                        and not downloaded.content.endswith(b"\xaeB`\x82")
-                    ):
-                        flag = True
+            if not need_download:
+                return 
 
+            s = requests.Session()
+            s.mount(url, HTTPAdapter(max_retries=5))
+            try_count = 0
+            success = False
+            MAX_TRY_COUNT = 3
+            while try_count < MAX_TRY_COUNT:
+                downloaded = s.get(
+                    url, headers=self.headers, timeout=(5, 10), verify=False
+                )
+                try_count += 1
+                fail_flg_1 = url.endswith(("jpg", "jpeg")) and not downloaded.content.endswith(b"\xff\xd9")
+                fail_flg_2 = url.endswith("png") and not downloaded.content.endswith(b"\xaeB`\x82")
+
+                if ( fail_flg_1  or fail_flg_2):
+                    logger.debug("[DEBUG] failed " + url + "  " + str(try_count))
+                else:
+                    success = True
+                    logger.debug("[DEBUG] success " + url + "  " + str(try_count))
+                    break
+
+            if success: 
                 # 需要分别判断是否需要下载
                 if not file_exist:
                     with open(file_path, "wb") as f:
                         f.write(downloaded.content)
-
+                        logger.debug("[DEBUG] save " + file_path )
                 if (not sqlite_exist) and ("sqlite" in self.write_mode):
                     self.insert_file_sqlite(
                         file_path, weibo_id, url, downloaded.content
                     )
+            else:
+                logger.debug("[DEBUG] failed " + url + " TOTALLY")
         except Exception as e:
             error_file = self.get_filepath(type) + os.sep + "not_downloaded.txt"
             with open(error_file, "ab") as f:
@@ -1073,7 +1089,11 @@ class Weibo(object):
                 # 如果需要检查cookie，在循环第一个人的时候，就要看看仅自己可见的信息有没有，要是没有直接报错
                 for w in weibos:
                     if w["card_type"] == 11:
-                        w = w.get("card_group",[0])[0] or w
+                        temp = w.get("card_group",[0])
+                        if len(temp) >= 1:
+                            w = temp[0] or w
+                        else:
+                            w = w
                     if w["card_type"] == 9:
                         wb = self.get_one_weibo(w)
                         if wb:
