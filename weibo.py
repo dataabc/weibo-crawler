@@ -116,6 +116,7 @@ class Weibo(object):
         self.got_count = 0  # 存储爬取到的微博数
         self.weibo = []  # 存储爬取到的所有微博信息
         self.weibo_id_list = []  # 存储爬取到的所有微博id
+        self.long_sleep_count_before_each_user = 0 #每个用户前的长时间sleep避免被ban
 
     def validate_config(self, config):
         """验证配置是否正确"""
@@ -332,12 +333,15 @@ class Weibo(object):
         """获取用户信息"""
         params = {"containerid": "100505" + str(self.user_config["user_id"])}
 
-        # TODO 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
-        sleep_time = random.randint(30, 60)
-        # 添加log，否则一般用户不知道以为程序卡了
-        logger.info(f"""短暂sleep {sleep_time}秒，避免被ban""")        
-        sleep(sleep_time)
-        logger.info("sleep结束")        
+        # 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
+        # 加一个count，不需要一上来啥都没干就sleep
+        if self.long_sleep_count_before_each_user > 0:
+            sleep_time = random.randint(30, 60)
+            # 添加log，否则一般用户不知道以为程序卡了
+            logger.info(f"""短暂sleep {sleep_time}秒，避免被ban""")        
+            sleep(sleep_time)
+            logger.info("sleep结束")  
+        self.long_sleep_count_before_each_user = self.long_sleep_count_before_each_user + 1      
 
         js, status_code = self.get_json(params)
         if status_code != 200:
