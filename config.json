@@ -2,8 +2,7 @@
     "user_id_list": [
         "6074526225"
     ],
-    "filter": 0,
-    "remove_html_tag": 1,
+    "only_crawl_original": 0,
     "since_date": 1,
     "start_page": 1,
     "write_mode": [
@@ -17,7 +16,8 @@
     "comment_max_download_count": 100,
     "download_repost": 1,
     "repost_max_download_count": 100,
-    "result_dir_name": 0,
+    "user_id_as_folder_name": 0,
+    "remove_html_tag": 1,
     "cookie": "your cookie",
     "mysql_config": {
         "host": "localhost",
