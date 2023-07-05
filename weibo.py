@@ -86,7 +86,12 @@ class Weibo(object):
         self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
         user_id_list = config["user_id_list"]
         # 避免卡住
-        random.shuffle(user_id_list)
+        if isinstance(user_id_list, list):
+            random.shuffle(user_id_list)
+        else:
+            with open(user_id_list, 'r') as f:
+                user_id_list = [line.strip() for line in f]
+            random.shuffle(user_id_list)
         query_list = config.get("query_list") or []
         if isinstance(query_list, str):
             query_list = query_list.split(",")
@@ -108,6 +113,7 @@ class Weibo(object):
                 }
                 for user_id in user_id_list
             ]
+
         self.user_config_list = user_config_list  # 要爬取的微博用户的user_config列表
         self.user_config = {}  # 用户配置,包含用户id和since_date
         self.start_date = ""  # 获取用户第一条微博时的日期
