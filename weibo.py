@@ -88,10 +88,7 @@ class Weibo(object):
         # 避免卡住
         if isinstance(user_id_list, list):
             random.shuffle(user_id_list)
-        else:
-            with open(user_id_list, 'r') as f:
-                user_id_list = [line.strip() for line in f]
-            random.shuffle(user_id_list)
+
         query_list = config.get("query_list") or []
         if isinstance(query_list, str):
             query_list = query_list.split(",")
