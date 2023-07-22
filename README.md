@@ -10,6 +10,7 @@
   * [运行脚本](#5运行脚本)
   * [按需求修改脚本（可选）](#6按需求修改脚本可选)
   * [定期自动爬取微博（可选）](#7定期自动爬取微博可选)
+  * [使用docker](#8使用docker)
 * [如何获取user_id](#如何获取user_id)
 * [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
 * [如何获取cookie（可选）](#如何获取cookie可选)
@@ -817,6 +818,35 @@ txt文件名格式可以参考[程序设置](#3程序设置)中的设置user_id_
 
 * 该模式会跳过置顶微博。
 * 若采集信息后用户又编辑微博，则不会记录编辑内容。
+
+### 8.使用docker
+
+**docker run**
+
+```shell
+docker build -t weibo-crawler .
+docker run -it -d \
+  -v path/to/config.json:/app/config.json \
+  -v path/to/weibo:/app/weibo \
+  -e schedule_interval=1 \ # 可选：循环间隔（分钟）
+  weibo-crawler
+```
+
+**docker compose**
+
+```yaml
+version: '3'
+  services:
+    weibo-crawler:
+      build:
+        context: .
+        dockerfile: Dockerfile
+      volumes:
+        - path/to/config.json:/app/config.json
+        - path/to/weibo:/app/weibo
+      environment:
+        - schedule_interval=1 # 可选：循环间隔（分钟）
+```
 
 ## 如何获取user_id
 
