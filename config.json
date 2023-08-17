@@ -1,7 +1,5 @@
 {
-    "user_id_list": [
-        "6074526225"
-    ],
+    "user_id_list": "user_id_list.txt",
     "only_crawl_original": 0,
     "since_date": 1,
     "start_page": 1,

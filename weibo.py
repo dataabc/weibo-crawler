@@ -749,9 +749,12 @@ class Weibo(object):
         text_body = weibo_info["text"]
         selector = etree.HTML(f"{text_body}<hr>" if text_body.isspace() else text_body)
         if self.remove_html_tag:
-            weibo["text"] = selector.xpath("string(.)")
+            text_list = selector.xpath("//text()")
+            weibo["text"] = "\n".join(text_list)
+            print("weibo['text']={}".format(weibo["text"]))
         else:
             weibo["text"] = text_body
+        #print("weibo['text']={}".format(weibo["text"]))
         weibo["article_url"] = self.get_article_url(selector)
         weibo["pics"] = self.get_pics(weibo_info)
         weibo["video_url"] = self.get_video_url(weibo_info)
@@ -1450,7 +1453,22 @@ class Weibo(object):
         self.mysql_create(connection, sql)
 
     def mysql_insert(self, mysql_config, table, data_list):
-        """向MySQL表插入或更新数据"""
+        """
+        向MySQL表插入或更新数据
+
+        Parameters
+        ----------
+        mysql_config: map
+            MySQL配置表
+        table: str
+            要插入的表名
+        data_list: list
+            要插入的数据列表
+
+        Returns
+        -------
+        bool: SQL执行结果
+        """
         import pymysql
 
         if len(data_list) > 0:
@@ -1494,7 +1512,7 @@ class Weibo(object):
                 bid varchar(12) NOT NULL,
                 user_id varchar(20),
                 screen_name varchar(30),
-                text varchar(2000),
+                text text,
                 article_url varchar(100),
                 topics varchar(200),
                 at_users varchar(1000),
@@ -1510,7 +1528,10 @@ class Weibo(object):
                 PRIMARY KEY (id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
         self.mysql_create_table(mysql_config, create_table)
+
+        # 要插入的微博列表
         weibo_list = []
+        # 要插入的转发微博列表
         retweet_list = []
         if len(self.write_mode) > 1:
             info_list = copy.deepcopy(self.weibo[wrote_count:])
