@@ -750,11 +750,16 @@ class Weibo(object):
         selector = etree.HTML(f"{text_body}<hr>" if text_body.isspace() else text_body)
         if self.remove_html_tag:
             text_list = selector.xpath("//text()")
-            weibo["text"] = "\n".join(text_list)
-            print("weibo['text']={}".format(weibo["text"]))
+            # 若text_list中的某个字符串元素以 @ 或 # 开始，则将该元素与前后元素合并为新元素，否则会带来没有必要的换行
+            text_list_modified = []
+            for ele in range(len(text_list)):
+                if ele > 0 and text_list[ele-1].startswith(('@','#')) or text_list[ele].startswith(('@','#')):
+                    text_list_modified[-1] += text_list[ele]
+                else:
+                    text_list_modified.append(text_list[ele])
+            weibo["text"] = "\n".join(text_list_modified)
         else:
             weibo["text"] = text_body
-        #print("weibo['text']={}".format(weibo["text"]))
         weibo["article_url"] = self.get_article_url(selector)
         weibo["pics"] = self.get_pics(weibo_info)
         weibo["video_url"] = self.get_video_url(weibo_info)
