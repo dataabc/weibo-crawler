@@ -753,7 +753,7 @@ class Weibo(object):
             # 若text_list中的某个字符串元素以 @ 或 # 开始，则将该元素与前后元素合并为新元素，否则会带来没有必要的换行
             text_list_modified = []
             for ele in range(len(text_list)):
-                if ele > 0 and text_list[ele-1].startswith(('@','#')) or text_list[ele].startswith(('@','#')):
+                if ele > 0 and (text_list[ele-1].startswith(('@','#')) or text_list[ele].startswith(('@','#'))):
                     text_list_modified[-1] += text_list[ele]
                 else:
                     text_list_modified.append(text_list[ele])
