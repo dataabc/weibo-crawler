@@ -1999,7 +1999,7 @@ class Weibo(object):
                         user_config["since_date"] = self.since_date
                     # 若超过3个字段，则第四个字段为 query_list                    
                     if len(info) > 3:
-                        user_config["query_list"] = info[4].split(",")
+                        user_config["query_list"] = info[3].split(",")
                     else:
                         user_config["query_list"] = self.query_list
                     if user_config not in user_config_list:
