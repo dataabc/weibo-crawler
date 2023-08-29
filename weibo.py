@@ -734,7 +734,7 @@ class Weibo(object):
             created_at = created_at.replace("+0800 ", "")
             ts = datetime.strptime(created_at, "%c")
 
-        created_at = ts.strftime("%Y-%m-%d")
+        created_at = ts.strftime(DTFORMAT)
         full_created_at = ts.strftime("%Y-%m-%d %H:%M:%S")
         return created_at, full_created_at
 
@@ -1143,7 +1143,7 @@ class Weibo(object):
                                     return True
                             if wb["id"] in self.weibo_id_list:
                                 continue
-                            created_at = datetime.strptime(wb["created_at"], "%Y-%m-%d")
+                            created_at = datetime.strptime(wb["created_at"], DTFORMAT)
                             since_date = datetime.strptime(
                                 self.user_config["since_date"], DTFORMAT
                             )
