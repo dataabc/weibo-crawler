@@ -38,6 +38,8 @@ logging_path = os.path.split(os.path.realpath(__file__))[0] + os.sep + "logging.
 logging.config.fileConfig(logging_path)
 logger = logging.getLogger("weibo")
 
+# 日期时间格式
+DTFORMAT = "%Y-%m-%dT%H:%M:%S"
 
 class Weibo(object):
     def __init__(self, config):
@@ -48,10 +50,18 @@ class Weibo(object):
             "remove_html_tag"
         ]  # 取值范围为0、1, 0代表不移除微博中的html tag, 1代表移除
         since_date = config["since_date"]
+        # since_date 若为整数，则取该天数之前的日期；若为 yyyy-mm-dd，则增加时间
         if isinstance(since_date, int):
             since_date = date.today() - timedelta(since_date)
-        since_date = str(since_date)
-        self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-dd
+            since_date = since_date.strftime(DTFORMAT)
+        elif self.is_date(since_date):
+            since_date = "{}T00:00:00".format(since_date)
+        elif self.is_datetime(since_date):
+            pass
+        else:
+            logger.error("since_date 格式不正确，请确认配置是否正确")
+            sys.exit()
+        self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-ddThh:mm:ss，如：2023-08-21T09:23:03
         self.start_page = config.get("start_page", 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config[
             "write_mode"
@@ -139,12 +149,6 @@ class Weibo(object):
                 logger.warning("%s值应为0或1,请重新输入", config[argument])
                 sys.exit()
 
-        # 验证since_date
-        since_date = config["since_date"]
-        if (not self.is_date(str(since_date))) and (not isinstance(since_date, int)):
-            logger.warning("since_date值应为yyyy-mm-dd形式或整数,请重新输入")
-            sys.exit()
-
         # 验证query_list
         query_list = config.get("query_list") or []
         if (not isinstance(query_list, list)) and (not isinstance(query_list, str)):
@@ -180,6 +184,12 @@ class Weibo(object):
                 logger.warning("不存在%s文件", user_id_list)
                 sys.exit()
 
+        # 验证since_date
+        since_date = config["since_date"]
+        if (not isinstance(since_date, int)) and (not self.is_datetime(since_date)) and (not self.is_date(since_date)):
+            logger.warning("since_date值应为yyyy-mm-dd形式、yyyy-mm-ddTHH:MM:SS形式或整数，请重新输入")
+            sys.exit()
+
         comment_max_count = config["comment_max_download_count"]
         if not isinstance(comment_max_count, int):
             logger.warning("最大下载评论数 (comment_max_download_count) 应为整数类型")
@@ -196,8 +206,16 @@ class Weibo(object):
             logger.warning("最大下载转发数 (repost_max_download_count) 应该为正整数")
             sys.exit()
 
+    def is_datetime(self, since_date):
+        """判断日期格式是否为 %Y-%m-%dT%H:%M:%S"""
+        try:
+            datetime.strptime(since_date, DTFORMAT)
+            return True
+        except ValueError:
+            return False
+    
     def is_date(self, since_date):
-        """判断日期格式是否正确"""
+        """判断日期格式是否为 %Y-%m-%d"""
         try:
             datetime.strptime(since_date, "%Y-%m-%d")
             return True
@@ -1127,7 +1145,7 @@ class Weibo(object):
                                 continue
                             created_at = datetime.strptime(wb["created_at"], "%Y-%m-%d")
                             since_date = datetime.strptime(
-                                self.user_config["since_date"], "%Y-%m-%d"
+                                self.user_config["since_date"], DTFORMAT
                             )
                             if const.MODE == "append":
                                 # append模式下不会对置顶微博做任何处理
@@ -1172,7 +1190,7 @@ class Weibo(object):
                                 # TODO 更加合理的流程是，即使读取到上次更新微博id，也抓取增量评论，由此获得更多的评论
                                 since_date = datetime.strptime(
                                     convert_to_days_ago(self.last_weibo_date, 1),
-                                    "%Y-%m-%d",
+                                    DTFORMAT,
                                 )
                             if created_at < since_date:
                                 if self.is_pinned_weibo(w):
@@ -1918,14 +1936,14 @@ class Weibo(object):
                 # 本次运行的某用户首次抓取，用于标记最新的微博id
                 self.first_crawler = True
                 const.CHECK_COOKIE["GUESS_PIN"] = True
-            since_date = datetime.strptime(self.user_config["since_date"], "%Y-%m-%d")
-            today = datetime.strptime(str(date.today()), "%Y-%m-%d")
-            if since_date <= today:
+            since_date = datetime.strptime(self.user_config["since_date"], DTFORMAT)
+            today = datetime.today()
+            if since_date <= today:    # since_date 若为未来则无需执行
                 page_count = self.get_page_count()
                 wrote_count = 0
                 page1 = 0
                 random_pages = random.randint(1, 5)
-                self.start_date = datetime.now().strftime("%Y-%m-%d")
+                self.start_date = datetime.now().strftime(DTFORMAT)
                 pages = range(self.start_page, page_count + 1)
                 for page in tqdm(pages, desc="Progress"):
                     is_end = self.get_one_page(page)
@@ -1953,27 +1971,35 @@ class Weibo(object):
         """获取文件中的微博id信息"""
         with open(file_path, "rb") as f:
             try:
-                lines = f.read().splitlines()
+                lines = f.read().splitlines() 
                 lines = [line.decode("utf-8-sig") for line in lines]
             except UnicodeDecodeError:
                 logger.error("%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序", file_path)
                 sys.exit()
             user_config_list = []
+            # 分行解析配置，添加到user_config_list
             for line in lines:
-                info = line.split(" ")
+                info = line.strip().split(" ")    # 去除字符串首尾空白字符
                 if len(info) > 0 and info[0].isdigit():
                     user_config = {}
                     user_config["user_id"] = info[0]
-                    if len(info) > 2:
-                        if self.is_date(info[2]):
+                    # 根据配置文件行的字段数确定 since_date 的值
+                    if len(info) == 3:
+                        if self.is_datetime(info[2]):
                             user_config["since_date"] = info[2]
+                        elif self.is_date(info[2]):
+                            user_config["since_date"] = "{}T00:00:00".format(info[2])
                         elif info[2].isdigit():
                             since_date = date.today() - timedelta(int(info[2]))
-                            user_config["since_date"] = str(since_date)
+                            user_config["since_date"] = since_date.strftime(DTFORMAT)
+                        else:
+                            logger.error("since_date 格式不正确，请确认配置是否正确")
+                            sys.exit()
                     else:
                         user_config["since_date"] = self.since_date
+                    # 若超过3个字段，则第四个字段为 query_list                    
                     if len(info) > 3:
-                        user_config["query_list"] = info[3].split(",")
+                        user_config["query_list"] = info[4].split(",")
                     else:
                         user_config["query_list"] = self.query_list
                     if user_config not in user_config_list:
