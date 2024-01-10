@@ -1330,6 +1330,7 @@ class Weibo(object):
             "转发数",
             "话题",
             "@用户",
+            "完整日期",
         ]
         if not self.only_crawl_original:
             result_headers2 = ["是否原创", "源用户id", "源用户昵称"]
