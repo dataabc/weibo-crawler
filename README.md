@@ -836,16 +836,16 @@ docker run -it -d \
 
 ```yaml
 version: '3'
-  services:
-    weibo-crawler:
-      build:
-        context: .
-        dockerfile: Dockerfile
-      volumes:
-        - path/to/config.json:/app/config.json
-        - path/to/weibo:/app/weibo
-      environment:
-        - schedule_interval=1 # 可选：循环间隔（分钟）
+services:
+  weibo-crawler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - path/to/config.json:/app/config.json
+      - path/to/weibo:/app/weibo
+    environment:
+      - schedule_interval=1 # 可选：循环间隔（分钟）
 ```
 
 ## 如何获取user_id
