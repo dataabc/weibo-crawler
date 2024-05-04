@@ -24,5 +24,9 @@
         "password": "123456",
         "charset": "utf8mb4"
     },
-    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]"
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
+    "post_config": {
+        "api_url": "https://api.example.com",
+        "api_token": ""
+    }
 }

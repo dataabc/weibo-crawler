@@ -279,7 +279,11 @@ pip install -r requirements.txt
         "password": "123456",
         "charset": "utf8mb4"
     },
-    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]"
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
+    "post_config": {
+        "api_url": "https://api.example.com",
+        "api_token": ""
+    }
 }
 ```
 
@@ -363,7 +367,7 @@ remove_html_tag控制是否移除抓取到的weibo正文和评论中的html tag�
 
 **设置write_mode**
 
-write_mode控制结果文件格式，取值范围是csv、json、mongo、mysql和sqlite，分别代表将结果文件写入csv、json、MongoDB、MySQL和SQLite数据库。write_mode可以同时包含这些取值中的一个或几个，如：
+write_mode控制结果文件格式，取值范围是csv、json、post、mongo、mysql和sqlite，分别代表将结果写入csv、json文件，通过POST发出，MongoDB、MySQL和SQLite数据库。write_mode可以同时包含这些取值中的一个或几个，如：
 
 ```
 "write_mode": ["csv", "json"],
