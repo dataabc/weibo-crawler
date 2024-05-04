@@ -20,6 +20,7 @@ from pathlib import Path
 from time import sleep
 
 import requests
+from requests.exceptions import RequestException
 from lxml import etree
 from requests.adapters import HTTPAdapter
 from tqdm import tqdm
@@ -94,6 +95,7 @@ class Weibo(object):
         self.headers = {"User_Agent": user_agent, "Cookie": cookie}
         self.mysql_config = config.get("mysql_config")  # MySQL数据库连接配置，可以不填
         self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
+        self.post_config = config.get("post_config")  # post_config，可以不填
         user_id_list = config["user_id_list"]
         # 避免卡住
         if isinstance(user_id_list, list):
@@ -156,7 +158,7 @@ class Weibo(object):
             sys.exit()
 
         # 验证write_mode
-        write_mode = ["csv", "json", "mongo", "mysql", "sqlite"]
+        write_mode = ["csv", "json", "mongo", "mysql", "sqlite", "post"]
         if not isinstance(config["write_mode"], list):
             sys.exit("write_mode值应为list类型")
         for mode in config["write_mode"]:
@@ -429,6 +431,7 @@ class Weibo(object):
         """获取长微博"""
         for i in range(5):
             url = "https://m.weibo.cn/detail/%s" % id
+            logger.info(f"""URL: {url} """)
             html = requests.get(url, headers=self.headers, verify=False).text
             html = html[html.find('"status":') :]
             html = html[: html.rfind('"call"')]
@@ -1411,6 +1414,42 @@ class Weibo(object):
         logger.info("%d条微博写入json文件完毕,保存路径:", self.got_count)
         logger.info(path)
 
+    def send_post_request_with_token(self, url, data, token, max_retries, backoff_factor):
+        headers = {
+            'Content-Type': 'application/json',
+            'api-token': f'{token}',
+        }
+        for attempt in range(max_retries + 1):
+            try:
+                response = requests.post(url, json=data, headers=headers)
+                if response.status_code == requests.codes.ok:
+                    return response.json()
+                else:
+                    raise RequestException(f"Unexpected response status: {response.status_code}")
+            except RequestException as e:
+                if attempt < max_retries:
+                    sleep(backoff_factor * (attempt + 1))  # 逐步增加等待时间，避免频繁重试
+                    continue
+                else:
+                    logger.error(f"在尝试{max_retries}次发出POST连接后，请求失败：{e}")
+
+    def write_post(self, wrote_count):
+        """将爬到的信息通过POST发出"""
+        data = {}
+        data['user'] = self.user
+        weibo_info = self.weibo[wrote_count:]
+        if data.get('weibo'):
+            data['weibo'] += weibo_info
+        else:
+            data['weibo'] = weibo_info
+
+        if data:
+            self.send_post_request_with_token(self.post_config["api_url"], data, self.post_config["api_token"], 3, 2)
+            logger.info(u'%d条微博通过POST发送到 %s', len(data['weibo']), self.post_config["api_url"])
+        else:
+            logger.info(u'没有获取到微博，略过API POST')
+
+
     def info_to_mongodb(self, collection, info_list):
         """将爬取的信息写入MongoDB数据库"""
         try:
@@ -1908,6 +1947,8 @@ class Weibo(object):
                 self.write_csv(wrote_count)
             if "json" in self.write_mode:
                 self.write_json(wrote_count)
+            if "post" in self.write_mode:
+                self.write_post(wrote_count)
             if "mysql" in self.write_mode:
                 self.weibo_to_mysql(wrote_count)
             if "mongo" in self.write_mode:
