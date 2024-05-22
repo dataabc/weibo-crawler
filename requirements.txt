@@ -1,6 +1,6 @@
 lxml==4.9.3
 pymongo==4.6.3
-PyMySQL==1.1.0
+PyMySQL==1.1.1
 Requests==2.32.0
 schedule==1.2.1
 tqdm==4.66.3
