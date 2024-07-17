@@ -456,15 +456,8 @@ class Weibo(object):
 
     def get_live_photo(self, weibo_info):
         """获取live photo中的视频url"""
-        live_photo_list = []
-        live_photo = weibo_info.get("pic_video")
-        if live_photo:
-            prefix = "https://video.weibo.com/media/play?livephoto=//us.sinaimg.cn/"
-            for i in live_photo.split(","):
-                if len(i.split(":")) == 2:
-                    url = prefix + i.split(":")[1] + ".mov"
-                    live_photo_list.append(url)
-            return live_photo_list
+        live_photo_list = weibo_info.get("live_photo", [])
+        return live_photo_list
 
     def get_video_url(self, weibo_info):
         """获取微博视频url"""
