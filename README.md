@@ -831,6 +831,7 @@ txt文件名格式可以参考[程序设置](#3程序设置)中的设置user_id_
 docker build -t weibo-crawler .
 docker run -it -d \
   -v path/to/config.json:/app/config.json \
+  -v path/to/user_id_list.txt:/app/user_id_list.txt \ # 可选: 使用方法二（将上次执行程序时间写入文件）定期自动爬取微博时，保存修改到host
   -v path/to/weibo:/app/weibo \
   -e schedule_interval=1 \ # 可选：循环间隔（分钟）
   weibo-crawler
@@ -847,6 +848,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - path/to/config.json:/app/config.json
+      - path/to/user_id_list.txt:/app/user_id_list.txt # 可选: 使用方法二（将上次执行程序时间写入文件）定期自动爬取微博时，保存修改到host
       - path/to/weibo:/app/weibo
     environment:
       - schedule_interval=1 # 可选：循环间隔（分钟）
