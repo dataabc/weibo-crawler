@@ -32,7 +32,7 @@ import const
 from util import csvutil
 from util.dateutil import convert_to_days_ago
 from util.notify import push_deer
-from record import save_download_record, load_download_record
+
 warnings.filterwarnings("ignore")
 
 # 定义全局logger
@@ -238,8 +238,7 @@ class Weibo(object):
                 logger.info("验证码已完成，继续爬取。")
                 return True
             else:
-                logger.warning("用户未完成验证码验证，程序将退出。")
-                return False
+                logger.warning("未输入 'y'，请完成验证码后再输入 'y' 继续。")
         except EOFError:
             logger.error("读取用户输入时发生 EOFError，可能是输入流已关闭。")
             return False
@@ -327,8 +326,8 @@ class Weibo(object):
                 sleep_time = backoff_factor * (2 ** retries)
                 logger.error(f"JSON 解码失败，错误信息：{ve}。等待 {sleep_time} 秒后重试...")
                 sleep(sleep_time)
-        logger.error("超过最大重试次数，程序将退出。")
-        sys.exit("超过最大重试次数，程序已退出。")
+        logger.error("超过最大重试次数，跳过当前页面。")
+        return {}
 
     def user_to_csv(self):
         """将爬取到的用户信息写入csv文件"""
@@ -395,7 +394,7 @@ class Weibo(object):
         }
         # 创建'weibo'数据库
         create_database = """CREATE DATABASE IF NOT EXISTS weibo DEFAULT
-                         CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
+                        CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"""
         self.mysql_create_database(mysql_config, create_database)
         # 创建'user'表
         create_table = """
@@ -2167,12 +2166,6 @@ class Weibo(object):
         self.got_count = 0
         self.weibo_id_list = []
 
-        # 读取上次下载记录
-        #last_record = self.load_download_record(user_config["user_id"])
-        #if last_record:
-            # 如果存在上次下载记录，使用记录中的时间更新 since_date
-            #self.user_config["since_date"] = last_record["last_weibo_time"]
-
     def start(self):
         """运行爬虫"""
         try:
@@ -2237,15 +2230,40 @@ def initialize_logging(config):
     if not os.path.isdir("log/"):
         os.makedirs("log/")
     logging_path = os.path.split(os.path.realpath(__file__))[0] + os.sep + "logging.conf"
-    if os.path.isfile(logging_path):
-        logging.config.fileConfig(logging_path)
+    # if os.path.isfile(logging_path):
+    #     logging.config.fileConfig(logging_path)
     logger = logging.getLogger("weibo")
-
-    # 添加 RotatingFileHandler
-    handler = RotatingFileHandler("log/weibo.log", maxBytes=5*1024*1024, backupCount=5)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    
+    # 清除现有的处理器，避免重复日志输出
+    logger.handlers = []
+    
+    # 定义日志格式化器
+    file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
+    # 添加 RotatingFileHandler，确保使用 utf-8 编码
+    file_handler = RotatingFileHandler("log/weibo.log", maxBytes=5*1024*1024, backupCount=5, encoding='utf-8')
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+    
+    # 添加 StreamHandler，处理 UnicodeEncodeError
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(file_formatter)
+    
+    # 定义一个新的 emit 方法，以处理编码错误
+    def emit_with_error_handling(self, record):
+        try:
+            msg = file_formatter.format(record)
+            self.stream.write(msg + "\n")
+            self.flush()
+        except UnicodeEncodeError:
+            # 使用 'replace' 来替换无法编码的字符
+            msg = file_formatter.format(record).encode('utf-8', errors='replace').decode('utf-8')
+            self.stream.write(msg + "\n")
+            self.flush()
+    
+    # 绑定新的 emit 方法
+    stream_handler.emit = emit_with_error_handling.__get__(stream_handler, logging.StreamHandler)
+    logger.addHandler(stream_handler)
     
     # 设置日志级别（可根据需要调整）
     logger.setLevel(logging.INFO)

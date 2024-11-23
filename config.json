@@ -1,22 +1,35 @@
 {
     "user_id_list":  [""],
-    "user_name_list":  [""],
     "cookie_test_id":  [""],
-    "only_crawl_original": 1,
+    "only_crawl_original": 0,
     "since_date": "1900-1-1",
     "start_page": 1,
-    "write_mode": [],
+    "write_mode": [
+        "csv"
+    ],
     "original_pic_download": 1,
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
-    "download_comment": 0,
-    "comment_max_download_count": 0,
-    "download_repost": 0,
-    "repost_max_download_count": 0,
-    "remove_html_tag": 0,
-    "cookie": "",
-    "save_path": "",
+    "download_comment": 1,
+    "comment_max_download_count": 100,
+    "download_repost": 1,
+    "repost_max_download_count": 100,
     "user_id_as_folder_name": 0,
+    "remove_html_tag": 1,
+    "cookie": "your cookie here",
+    "mysql_config": {
+        "host": "localhost",
+        "port": 3306,
+        "user": "root",
+        "password": "123456",
+        "charset": "utf8mb4"
+    },
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
+    "post_config": {
+        "api_url": "https://api.example.com",
+        "api_token": ""
+    },
+    "save_path": "E:\\",
     "enable_logging": true
 }
