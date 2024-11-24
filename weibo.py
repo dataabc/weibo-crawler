@@ -516,17 +516,22 @@ class Weibo(object):
                     url, headers=self.headers, timeout=(5, 10), verify=False
                 )
                 try_count += 1
-                fail_flg_1 = url.endswith(("jpg", "jpeg")) and not downloaded.content.endswith(b"\xff\xd9")
-                fail_flg_2 = url.endswith("png") and not downloaded.content.endswith(b"\xaeB`\x82")
+                is_jpg = downloaded.content.startswith(b'\xFF\xD8')
+                is_png = downloaded.content.startswith(b"\x89PNG\r\n\x1a\n")
 
-                if ( fail_flg_1  or fail_flg_2):
+                if ( not is_jpg and not is_png):
                     logger.debug("[DEBUG] failed " + url + "  " + str(try_count))
-                else:
-                    success = True
-                    logger.debug("[DEBUG] success " + url + "  " + str(try_count))
-                    break
+                    continue
 
-            if success: 
+                if ( is_png ):
+                    file_path = file_path.replace(".jpg", ".png")
+                    file_path = file_path.replace(".jpeg", ".png")
+                success = True
+                logger.debug("[DEBUG] success " + url + "  " + str(try_count))
+                break
+
+            if success:
+                file_exist = os.path.isfile(file_path)
                 # 需要分别判断是否需要下载
                 if not file_exist:
                     with open(file_path, "wb") as f:
