@@ -516,8 +516,8 @@ class Weibo(object):
                     url, headers=self.headers, timeout=(5, 10), verify=False
                 )
                 try_count += 1
-                is_jpg = downloaded.content.startswith(b'\xFF\xD8')
-                is_png = downloaded.content.startswith(b"\x89PNG\r\n\x1a\n")
+                is_jpg = downloaded.content.startswith(b'\xFF\xD8') and downloaded.content.endswith(b"\xff\xd9")
+                is_png = downloaded.content.startswith(b"\x89PNG\r\n\x1a\n") and downloaded.content.endswith(b"\xaeB`\x82")
 
                 if ( not is_jpg and not is_png):
                     logger.debug("[DEBUG] failed " + url + "  " + str(try_count))
