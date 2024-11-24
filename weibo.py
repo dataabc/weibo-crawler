@@ -41,7 +41,6 @@ logger = logging.getLogger("weibo")
 # 日期时间格式
 DTFORMAT = "%Y-%m-%dT%H:%M:%S"
 
-#from record import save_download_record, load_download_record
 
 class Weibo(object):
     def __init__(self, config):
@@ -64,6 +63,7 @@ class Weibo(object):
             input("微博爬取完成，按任意键退出...")
             sys.exit()
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-ddThh:mm:ss，如：2023-08-21T09:23:03
+        
         self.start_page = config.get("start_page", 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config["write_mode"]
         self.original_pic_download = config["original_pic_download"]
@@ -102,13 +102,37 @@ class Weibo(object):
                 "save_data": False,  # 不保存数据
             })
 
-        for user_id in user_id_list:
-            user_config_list.append({
-                "user_id": user_id,
-                "since_date": self.since_date,
-                "query_list": self.query_list,
-                "save_data": True,  # 正常保存数据
-            })
+        # 处理主用户列表
+        if isinstance(user_id_list, list):
+            # 用户ID为列表
+            for user_id in user_id_list:
+                user_config_list.append({
+                    "user_id": user_id,
+                    "since_date": self.since_date,
+                    "query_list": self.query_list,
+                    "save_data": True,  # 正常保存数据
+                })
+        elif isinstance(user_id_list, str):
+            # 用户ID为字符串，可能是单个ID或文件路径
+            if os.path.isfile(user_id_list):
+                # 是文件路径
+                if not os.path.isabs(user_id_list):
+                    user_id_list = os.path.join(os.path.dirname(os.path.realpath(__file__)), user_id_list)
+                self.user_config_file_path = user_id_list  # 用户配置文件路径
+                file_user_configs = self.get_user_config_list(user_id_list)
+                user_config_list.extend(file_user_configs)
+            else:
+                # 是单个用户ID
+                user_config_list.append({
+                    "user_id": user_id_list,
+                    "since_date": self.since_date,
+                    "query_list": self.query_list,
+                    "save_data": True,  # 正常保存数据
+                })
+        else:
+            logger.error("user_id_list 的类型不合法，应为列表或字符串。")
+            input("微博爬取完成，按任意键退出...")
+            sys.exit()
 
         self.user_config_list = user_config_list  # 要爬取的微博用户的user_config列表
         self.user_config = {}  # 用户配置,包含用户id和since_date
@@ -121,8 +145,8 @@ class Weibo(object):
         self.long_sleep_count_before_each_user = 0  # 每个用户前的长时间sleep避免被ban
 
         # 初始化 user_config_file_path
-        self.user_config_file_path = ""  # 因为 user_id_list 是列表，所以不使用文件路径
-
+        if not (isinstance(user_id_list, str) and os.path.isfile(user_id_list)):
+            self.user_config_file_path = ""
 
 
     def validate_config(self, config):
@@ -651,7 +675,7 @@ class Weibo(object):
             logger.exception(e)
 
     def sqlite_exist_file(self, url):
-        if not os.path.exists(self.get_sqlte_path()):
+        if not os.path.exists(self.get_sqlite_path()):
             return True
         con = self.get_sqlite_connection()
         cur = con.cursor()
@@ -1918,7 +1942,7 @@ class Weibo(object):
         con.commit()
 
     def get_sqlite_connection(self):
-        path = self.get_sqlte_path()
+        path = self.get_sqlite_path()
         create = False
         if not os.path.exists(path):
             create = True
@@ -1936,7 +1960,7 @@ class Weibo(object):
         cur.executescript(sql)
         connection.commit()
 
-    def get_sqlte_path(self):
+    def get_sqlite_path(self):
         return "./weibo/weibodata.db"
 
     def get_sqlite_create_sql(self):
@@ -2024,26 +2048,61 @@ class Weibo(object):
         with open(user_config_file_path, "rb") as f:
             try:
                 lines = f.read().splitlines()
-                lines = [line.decode("utf-8-sig") for line in lines]
+                lines = [line.decode("utf-8-sig").strip() for line in lines]
             except UnicodeDecodeError:
                 logger.error("%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序", user_config_file_path)
                 input("微博爬取完成，按任意键退出...")
                 sys.exit()
-            for i, line in enumerate(lines):
-                info = line.split(" ")
-                if len(info) > 0 and info[0].isdigit():
-                    if self.user_config["user_id"] == info[0]:
-                        if len(info) == 1:
-                            info.append(self.user["screen_name"])
-                            info.append(self.start_date)
-                        if len(info) == 2:
-                            info.append(self.start_date)
-                        if len(info) > 2:
-                            info[2] = self.start_date
-                        lines[i] = " ".join(info)
-                        break
+
+        for i, line in enumerate(lines):
+            info = line.split(" ")
+            if len(info) == 0:
+                continue
+
+            if info[0] != self.user_config["user_id"]:
+                continue
+
+            # 根据现有字段数决定如何更新
+            if len(info) == 1:
+                # 只有 user_id
+                if "screen_name" in self.user:
+                    info.append(self.user["screen_name"])
+                info.append(self.start_date)
+                logger.info(
+                    f"更新第 {i+1} 行：添加 screen_name 和 since_date。"
+                )
+            elif len(info) == 2:
+                if self.is_datetime(info[1]) or self.is_date(info[1]) or info[1].isdigit():
+                    # 预期是 since_date
+                    info[1] = self.start_date
+                    logger.info(
+                        f"更新第 {i+1} 行：since_date 更新为 {self.start_date}。"
+                    )
+                else:
+                    # 预期是 screen_name
+                    info.append(self.start_date)
+                    logger.info(
+                        f"更新第 {i+1} 行：添加 since_date {self.start_date}。"
+                    )
+            elif len(info) == 3:
+                # user_id, screen_name, since_date
+                info[2] = self.start_date
+                logger.info(
+                    f"更新第 {i+1} 行：since_date 更新为 {self.start_date}。"
+                )
+            elif len(info) == 4:
+                # user_id, screen_name, since_date, query_list
+                info[2] = self.start_date
+                logger.info(
+                    f"更新第 {i+1} 行：since_date 更新为 {self.start_date}。"
+                )# 如果需要更新 query_list，可以根据需求进行处理
+                
+            lines[i] = " ".join(info)
+            break
+
         with codecs.open(user_config_file_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
+        logger.info(f"更新用户配置文件 {user_config_file_path} 完毕")
 
     def write_data(self, wrote_count):
         """将爬到的信息写入文件或数据库"""
@@ -2099,6 +2158,11 @@ class Weibo(object):
                     is_end = self.get_one_page(page)
                     if is_end:
                         break
+                    
+                    # 记录最新微博的 created_at
+                    if self.weibo:
+                        latest_weibo = max(self.weibo, key=lambda x: datetime.strptime(x["created_at"], DTFORMAT))
+                        self.start_date = latest_weibo["created_at"]
 
                     if page % 20 == 0:  # 每爬20页写入一次文件
                         self.write_data(wrote_count)
@@ -2121,42 +2185,137 @@ class Weibo(object):
         """获取文件中的微博id信息"""
         with open(file_path, "rb") as f:
             try:
-                lines = f.read().splitlines() 
-                lines = [line.decode("utf-8-sig") for line in lines]
+                lines = f.read().splitlines()
+                lines = [line.decode("utf-8-sig").strip() for line in lines]
             except UnicodeDecodeError:
                 logger.error("%s文件应为utf-8编码，请先将文件编码转为utf-8再运行程序", file_path)
                 input("微博爬取完成，按任意键退出...")
                 sys.exit()
-            user_config_list = []
-            # 分行解析配置，添加到user_config_list
-            for line in lines:
-                info = line.strip().split(" ")    # 去除字符串首尾空白字符
-                if len(info) > 0 and info[0].isdigit():
-                    user_config = {}
-                    user_config["user_id"] = info[0]
-                    # 根据配置文件行的字段数确定 since_date 的值
-                    if len(info) == 3:
-                        if self.is_datetime(info[2]):
-                            user_config["since_date"] = info[2]
-                        elif self.is_date(info[2]):
-                            user_config["since_date"] = "{}T00:00:00".format(info[2])
-                        elif info[2].isdigit():
-                            since_date = date.today() - timedelta(int(info[2]))
-                            user_config["since_date"] = since_date.strftime(DTFORMAT)
-                        else:
-                            logger.error("since_date 格式不正确，请确认配置是否正确")
-                            input("微博爬取完成，按任意键退出...")
-                            sys.exit()
-                    else:
-                        user_config["since_date"] = self.since_date
-                    # 若超过3个字段，则第四个字段为 query_list                    
-                    if len(info) > 3:
-                        user_config["query_list"] = info[3].split(",")
-                    else:
-                        user_config["query_list"] = self.query_list
-                    if user_config not in user_config_list:
-                        user_config_list.append(user_config)
+
+        user_config_list = []
+        # 分行解析配置，添加到user_config_list
+        for line_number, line in enumerate(lines, start=1):
+            if not line:
+                logger.warning("第 %d 行为空，跳过。", line_number)
+                continue
+            
+            # 使用正则表达式分割，确保按任意空白字符分割
+            info = re.split(r'\s+', line)
+            logger.info(f"第 {line_number} 行解析后的字段数量：{len(info)}，内容：{info}")
+
+            if len(info) == 0:
+                logger.warning("第 %d 行没有有效内容，跳过。", line_number)
+                continue
+
+            if len(info) > 4:
+                logger.error("第 %d 行包含过多字段（预期最多4个），内容：%s", line_number, line)
+                input("请修正user_ids.txt文件格式，按任意键退出...")
+                sys.exit()
+
+            if not info[0].isdigit():
+                logger.error("第 %d 行的用户ID无效（应为数字），内容：%s", line_number, line)
+                input("请修正user_ids.txt文件格式，按任意键退出...")
+                sys.exit()
+
+            user_config = {}
+            user_config["user_id"] = info[0]
+
+            # 处理不同长度的行
+            if len(info) == 4:
+                # 预期格式：user_id screen_name since_date query_list
+                user_config["screen_name"] = info[1]
+                if self.is_datetime(info[2]):
+                    user_config["since_date"] = info[2]
+                elif self.is_date(info[2]):
+                    user_config["since_date"] = "{}T00:00:00".format(info[2])
+                elif info[2].isdigit():
+                    try:
+                        days_ago = int(info[2])
+                        if days_ago < 0:
+                            raise ValueError("days_ago 应为非负整数")
+                        since_date = date.today() - timedelta(days=days_ago)
+                        user_config["since_date"] = since_date.strftime(DTFORMAT)
+                    except ValueError as ve:
+                        logger.error("第 %d 行的since_date无效（%s），内容：%s", line_number, ve, line)
+                        input("请修正user_ids.txt文件格式，按任意键退出...")
+                        sys.exit()
+                else:
+                    logger.error("第 %d 行的since_date格式不正确，内容：%s", line_number, line)
+                    input("请修正user_ids.txt文件格式，按任意键退出...")
+                    sys.exit()
+
+                # 设置 query_list
+                user_config["query_list"] = info[3].split(",")
+            elif len(info) == 3:
+                # 预期格式：user_id screen_name since_date
+                user_config["screen_name"] = info[1]
+                if self.is_datetime(info[2]):
+                    user_config["since_date"] = info[2]
+                elif self.is_date(info[2]):
+                    user_config["since_date"] = "{}T00:00:00".format(info[2])
+                elif info[2].isdigit():
+                    try:
+                        days_ago = int(info[2])
+                        if days_ago < 0:
+                            raise ValueError("days_ago 应为非负整数")
+                        since_date = date.today() - timedelta(days=days_ago)
+                        user_config["since_date"] = since_date.strftime(DTFORMAT)
+                    except ValueError as ve:
+                        logger.error("第 %d 行的since_date无效（%s），内容：%s", line_number, ve, line)
+                        input("请修正user_ids.txt文件格式，按任意键退出...")
+                        sys.exit()
+                else:
+                    logger.error("第 %d 行的since_date格式不正确，内容：%s", line_number, line)
+                    input("请修正user_ids.txt文件格式，按任意键退出...")
+                    sys.exit()
+                # 使用全局 query_list
+                user_config["query_list"] = self.query_list
+            elif len(info) == 2:
+                # 预期格式：user_id screen_name 或 user_id since_date
+                if self.is_datetime(info[1]):
+                    user_config["since_date"] = info[1]
+                elif self.is_date(info[1]):
+                    user_config["since_date"] = "{}T00:00:00".format(info[1])
+                elif info[1].isdigit():
+                    try:
+                        days_ago = int(info[1])
+                        if days_ago < 0:
+                            raise ValueError("days_ago 应为非负整数")
+                        since_date = date.today() - timedelta(days=days_ago)
+                        user_config["since_date"] = since_date.strftime(DTFORMAT)
+                    except ValueError as ve:
+                        logger.error("第 %d 行的since_date无效（%s），内容：%s", line_number, ve, line)
+                        input("请修正user_ids.txt文件格式，按任意键退出...")
+                        sys.exit()
+                else:
+                    # 假设第二个字段是 screen_name，使用全局 since_date
+                    user_config["screen_name"] = info[1]
+                    user_config["since_date"] = self.since_date
+                    logger.info(
+                        "第 %d 行缺少 since_date，使用全局 since_date：%s",
+                        line_number,
+                        self.since_date
+                    )
+                # 使用全局 query_list
+                user_config["query_list"] = self.query_list
+            else:
+                # 只有 user_id，使用默认 since_date
+                user_config["since_date"] = self.since_date
+                logger.info(
+                    "第 %d 行仅包含 user_id，使用全局 since_date：%s",
+                    line_number,
+                    self.since_date
+                )
+                # 使用全局 query_list
+                user_config["query_list"] = self.query_list
+
+            user_config["save_data"] = True  # 根据需要设置
+
+            if user_config not in user_config_list:
+                user_config_list.append(user_config)
+
         return user_config_list
+
 
     def initialize_info(self, user_config):
         """初始化爬虫信息"""
@@ -2184,11 +2343,6 @@ class Weibo(object):
                     self.update_user_config_file(self.user_config_file_path)
         except Exception as e:
             logger.exception(e)
-    def save_download_record(self, latest_weibo_data):
-        save_download_record(self.save_path, self.user_config["user_id"], latest_weibo_data)
-
-    def load_download_record(self, user_id):
-        return load_download_record(self.save_path, user_id)
 
 def handle_config_renaming(config, oldName, newName):
     if oldName in config and newName not in config:
