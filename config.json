@@ -1,6 +1,7 @@
 {
-    "user_id_list":  [""],
-    "cookie_test_id":  [""],
+
+    "user_id_list": "/path/to/user_ids.txt",
+    "cookie_test_id":  ["此处为测试Cookie有效性的id"],
     "only_crawl_original": 0,
     "since_date": "1900-1-1",
     "start_page": 1,
