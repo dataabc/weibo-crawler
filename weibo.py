@@ -14,6 +14,7 @@ import re
 import sqlite3
 import sys
 import warnings
+import webbrowser
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -225,13 +226,61 @@ class Weibo(object):
             return False
 
     def get_json(self, params):
-        """获取网页中json数据"""
+        """获取网页中的 JSON 数据"""
         url = "https://m.weibo.cn/api/container/getIndex?"
-        r = requests.get(url, params=params, headers=self.headers, verify=False)
-        return r.json(), r.status_code
+        try:
+            r = requests.get(url, params=params, headers=self.headers, verify=False, timeout=10)
+            r.raise_for_status()  # 如果响应状态码不是 200，会抛出 HTTPError
+            response_json = r.json()
+            return response_json, r.status_code
+        except RequestException as e:
+            logger.error(f"请求失败，错误信息：{e}")
+            return {}, 500
+        except ValueError as ve:
+            logger.error(f"JSON 解码失败，错误信息：{ve}")
+            return {}, 500
 
+    def handle_captcha(self, js):
+        """
+        处理验证码挑战，提示用户手动完成验证。
+
+        参数:
+            js (dict): API 返回的 JSON 数据。
+
+        返回:
+            bool: 如果用户成功完成验证码，返回 True；否则返回 False。
+        """
+        logger.debug(f"收到的 JSON 数据：{js}")
+        
+        captcha_url = js.get("url")
+        if captcha_url:
+            logger.warning("检测到验证码挑战。正在打开验证码页面以供手动验证。")
+            webbrowser.open(captcha_url)
+        else:
+            logger.warning("检测到可能的验证码挑战，但未提供验证码 URL。请手动检查浏览器并完成验证码验证。")
+            return False
+        
+        logger.info("请在打开的浏览器窗口中完成验证码验证。")
+        while True:
+            try:
+                            # 等待用户输入
+                user_input = input("完成验证码后，请输入 'y' 继续，或输入 'q' 退出：").strip().lower()
+
+                if user_input == 'y':
+                    logger.info("用户输入 'y'，继续爬取。")
+                    return True
+                elif user_input == 'q':
+                    logger.warning("用户选择退出，程序中止。")
+                    sys.exit("用户选择退出，程序中止。")
+                else:
+                    logger.warning("无效输入，请重新输入 'y' 或 'q'。")
+            except EOFError:
+                logger.error("读取用户输入时发生 EOFError，程序退出。")
+                sys.exit("输入流已关闭，程序中止。")
+    
     def get_weibo_json(self, page):
         """获取网页中微博json数据"""
+        url = "https://m.weibo.cn/api/container/getIndex?"
         params = (
             {
                 "container_ext": "profile_uid:" + str(self.user_config["user_id"]),
@@ -242,9 +291,41 @@ class Weibo(object):
             else {"containerid": "230413" + str(self.user_config["user_id"])}
         )
         params["page"] = page
-        js, _ = self.get_json(params)
-        return js
 
+        max_retries = 5
+        retries = 0
+        backoff_factor = 5
+
+        while retries < max_retries:
+            try:
+                response = requests.get(url, params=params, headers=self.headers, timeout=10)
+                response.raise_for_status()  # 如果响应状态码不是 200，会抛出 HTTPError
+                js = response.json()
+                if 'data' in js:
+                    logger.info(f"成功获取到页面 {page} 的数据。")
+                    return js
+                else:
+                    logger.warning("未能获取到数据，可能需要验证码验证。")
+                    if self.handle_captcha(js):
+                        logger.info("用户已完成验证码验证，继续请求数据。")
+                        retries = 0  # 重置重试计数器
+                        continue
+                    else:
+                        logger.error("验证码验证失败或未完成，程序将退出。")
+                        sys.exit()
+            except RequestException as e:
+                retries += 1
+                sleep_time = backoff_factor * (2 ** retries)
+                logger.error(f"请求失败，错误信息：{e}。等待 {sleep_time} 秒后重试...")
+                sleep(sleep_time)
+            except ValueError as ve:
+                retries += 1
+                sleep_time = backoff_factor * (2 ** retries)
+                logger.error(f"JSON 解码失败，错误信息：{ve}。等待 {sleep_time} 秒后重试...")
+                sleep(sleep_time)
+        logger.error("超过最大重试次数，跳过当前页面。")
+        return {}
+    
     def user_to_csv(self):
         """将爬取到的用户信息写入csv文件"""
         file_dir = os.path.split(os.path.realpath(__file__))[0] + os.sep + "weibo"
@@ -355,7 +436,8 @@ class Weibo(object):
     def get_user_info(self):
         """获取用户信息"""
         params = {"containerid": "100505" + str(self.user_config["user_id"])}
-
+        url = "https://m.weibo.cn/api/container/getIndex"
+        
         # 这里在读取下一个用户的时候很容易被ban，需要优化休眠时长
         # 加一个count，不需要一上来啥都没干就sleep
         if self.long_sleep_count_before_each_user > 0:
@@ -366,66 +448,89 @@ class Weibo(object):
             logger.info("sleep结束")  
         self.long_sleep_count_before_each_user = self.long_sleep_count_before_each_user + 1      
 
-        js, status_code = self.get_json(params)
-        if status_code != 200:
-            logger.info("被ban了，需要等待一段时间")
-            sys.exit()
-        if js["ok"]:
-            info = js["data"]["userInfo"]
-            user_info = OrderedDict()
-            user_info["id"] = self.user_config["user_id"]
-            user_info["screen_name"] = info.get("screen_name", "")
-            user_info["gender"] = info.get("gender", "")
-            params = {
-                "containerid": "230283" + str(self.user_config["user_id"]) + "_-_INFO"
-            }
-            zh_list = ["生日", "所在地", "小学", "初中", "高中", "大学", "公司", "注册时间", "阳光信用"]
-            en_list = [
-                "birthday",
-                "location",
-                "education",
-                "education",
-                "education",
-                "education",
-                "company",
-                "registration_time",
-                "sunshine",
-            ]
-            for i in en_list:
-                user_info[i] = ""
-            js, _ = self.get_json(params)
-            if js["ok"]:
-                cards = js["data"]["cards"]
-                if isinstance(cards, list) and len(cards) > 1:
-                    card_list = cards[0]["card_group"] + cards[1]["card_group"]
-                    for card in card_list:
-                        if card.get("item_name") in zh_list:
-                            user_info[
-                                en_list[zh_list.index(card.get("item_name"))]
-                            ] = card.get("item_content", "")
-            user_info["statuses_count"] = self.string_to_int(
-                info.get("statuses_count", 0)
-            )
-            user_info["followers_count"] = self.string_to_int(
-                info.get("followers_count", 0)
-            )
-            user_info["follow_count"] = self.string_to_int(info.get("follow_count", 0))
-            user_info["description"] = info.get("description", "")
-            user_info["profile_url"] = info.get("profile_url", "")
-            user_info["profile_image_url"] = info.get("profile_image_url", "")
-            user_info["avatar_hd"] = info.get("avatar_hd", "")
-            user_info["urank"] = info.get("urank", 0)
-            user_info["mbrank"] = info.get("mbrank", 0)
-            user_info["verified"] = info.get("verified", False)
-            user_info["verified_type"] = info.get("verified_type", -1)
-            user_info["verified_reason"] = info.get("verified_reason", "")
-            user = self.standardize_info(user_info)
-            self.user = user
-            self.user_to_database()
-            return 0
-        else:
-            logger.info("user_id_list中 {} id出错".format(self.user_config["user_id"]))
-            return -1
+        max_retries = 5  # 设置最大重试次数，避免无限循环
+        retries = 0
+        backoff_factor = 5  # 指数退避的基数（秒）
+        
+        while retries < max_retries:
+            try:
+                response = requests.get(url, params=params, headers=self.headers, timeout=10)
+                response.raise_for_status()
+                js = response.json()
+                if 'data' in js and 'userInfo' in js['data']:
+                    info = js["data"]["userInfo"]
+                    user_info = OrderedDict()
+                    user_info["id"] = self.user_config["user_id"]
+                    user_info["screen_name"] = info.get("screen_name", "")
+                    user_info["gender"] = info.get("gender", "")
+                    params = {
+                        "containerid": "230283" + str(self.user_config["user_id"]) + "_-_INFO"
+                    }
+                    zh_list = ["生日", "所在地", "小学", "初中", "高中", "大学", "公司", "注册时间", "阳光信用"]
+                    en_list = [
+                        "birthday",
+                        "location",
+                        "education",
+                        "education",
+                        "education",
+                        "education",
+                        "company",
+                        "registration_time",
+                        "sunshine",
+                    ]
+                    for i in en_list:
+                        user_info[i] = ""
+                    js, _ = self.get_json(params)
+                    if js["ok"]:
+                        cards = js["data"]["cards"]
+                        if isinstance(cards, list) and len(cards) > 1:
+                            card_list = cards[0]["card_group"] + cards[1]["card_group"]
+                            for card in card_list:
+                                if card.get("item_name") in zh_list:
+                                    user_info[
+                                        en_list[zh_list.index(card.get("item_name"))]
+                                    ] = card.get("item_content", "")
+                    user_info["statuses_count"] = self.string_to_int(
+                        info.get("statuses_count", 0)
+                    )
+                    user_info["followers_count"] = self.string_to_int(
+                        info.get("followers_count", 0)
+                    )
+                    user_info["follow_count"] = self.string_to_int(info.get("follow_count", 0))
+                    user_info["description"] = info.get("description", "")
+                    user_info["profile_url"] = info.get("profile_url", "")
+                    user_info["profile_image_url"] = info.get("profile_image_url", "")
+                    user_info["avatar_hd"] = info.get("avatar_hd", "")
+                    user_info["urank"] = info.get("urank", 0)
+                    user_info["mbrank"] = info.get("mbrank", 0)
+                    user_info["verified"] = info.get("verified", False)
+                    user_info["verified_type"] = info.get("verified_type", -1)
+                    user_info["verified_reason"] = info.get("verified_reason", "")
+                    self.user = self.standardize_info(user_info)
+                    self.user_to_database()
+                    logger.info(f"成功获取到用户 {self.user_config['user_id']} 的信息。")
+                    return 0
+                else:
+                    logger.warning("未能获取到用户信息，可能需要验证码验证。")
+                    if self.handle_captcha(js):
+                        logger.info("用户已完成验证码验证，继续请求用户信息。")
+                        retries = 0  # 重置重试计数器
+                        continue
+                    else:
+                        logger.error("验证码验证失败或未完成，程序将退出。")
+                        sys.exit()
+            except RequestException as e:
+                retries += 1
+                sleep_time = backoff_factor * (2 ** retries)
+                logger.error(f"请求失败，错误信息：{e}。等待 {sleep_time} 秒后重试...")
+                sleep(sleep_time)
+            except ValueError as ve:
+                retries += 1
+                sleep_time = backoff_factor * (2 ** retries)
+                logger.error(f"JSON 解码失败，错误信息：{ve}。等待 {sleep_time} 秒后重试...")
+                sleep(sleep_time)
+        logger.error("超过最大重试次数，程序将退出。")
+        sys.exit("超过最大重试次数，程序已退出。")
 
     def get_long_weibo(self, id):
         """获取长微博"""
@@ -507,47 +612,103 @@ class Weibo(object):
                 return 
 
             s = requests.Session()
-            s.mount(url, HTTPAdapter(max_retries=5))
+            s.mount('http://', HTTPAdapter(max_retries=5))
+            s.mount('https://', HTTPAdapter(max_retries=5))
             try_count = 0
             success = False
             MAX_TRY_COUNT = 3
+            detected_extension = None
             while try_count < MAX_TRY_COUNT:
-                downloaded = s.get(
-                    url, headers=self.headers, timeout=(5, 10), verify=False
-                )
-                try_count += 1
-                is_jpg = downloaded.content.startswith(b'\xFF\xD8') and downloaded.content.endswith(b"\xff\xd9")
-                is_png = downloaded.content.startswith(b"\x89PNG\r\n\x1a\n") and downloaded.content.endswith(b"\xaeB`\x82")
+                try:
+                    response = s.get(
+                        url, headers=self.headers, timeout=(5, 10), verify=False
+                    )
+                    response.raise_for_status()
+                    downloaded = response.content
+                    try_count += 1
 
-                if ( not is_jpg and not is_png):
-                    logger.debug("[DEBUG] failed " + url + "  " + str(try_count))
-                    continue
+                    # 获取文件后缀
+                    url_path = url.split('?')[0]  # 去除URL中的参数
+                    inferred_extension = os.path.splitext(url_path)[1].lower().strip('.')
 
-                if ( is_png ):
-                    file_path = file_path.replace(".jpg", ".png")
-                    file_path = file_path.replace(".jpeg", ".png")
-                success = True
-                logger.debug("[DEBUG] success " + url + "  " + str(try_count))
-                break
+                    # 对JPEG和PNG文件进行Magic Number检测
+                    if inferred_extension in ['jpg', 'jpeg']:
+                        if not downloaded.startswith(b'\xFF\xD8\xFF'):
+                            logger.debug(f"[DEBUG] JPEG Magic Number 检测失败: {url} ({try_count}/{MAX_TRY_COUNT})")
+                            continue  # Magic Number不匹配，继续重试
+                        if not downloaded.endswith(b'\xff\xd9'):
+                            logger.debug(f"[DEBUG] JPEG 文件不完整: {url} ({try_count}/{MAX_TRY_COUNT})")
+                            continue  # 文件不完整，继续重试
+                        detected_extension = '.jpg'  # 规范化扩展名为 .jpg
+                    elif inferred_extension == 'png':
+                        if not downloaded.startswith(b'\x89PNG\r\n\x1A\n'):
+                            logger.debug(f"[DEBUG] PNG Magic Number 检测失败: {url} ({try_count}/{MAX_TRY_COUNT})")
+                            continue  # Magic Number不匹配，继续重试
+                        if not downloaded.endswith(b'IEND\xaeB`\x82'):
+                            logger.debug(f"[DEBUG] PNG 文件不完整: {url} ({try_count}/{MAX_TRY_COUNT})")
+                            continue  # 文件不完整，继续重试
+                        detected_extension = '.png'  # 规范化扩展名为 .png
+                    else:
+                        # 对于其他类型，不进行Magic Number检测，直接使用URL中的后缀
+                        if inferred_extension in ['mp4', 'mov', 'webm', 'gif', 'bmp', 'tiff']:
+                            detected_extension = '.' + inferred_extension
+                        else:
+                            # 对于未知类型，可以尝试从Content-Type获取扩展名
+                            content_type = response.headers.get('Content-Type', '').lower()
+                            if 'image/jpeg' in content_type:
+                                detected_extension = '.jpg'
+                            elif 'image/png' in content_type:
+                                detected_extension = '.png'
+                            elif 'video/mp4' in content_type:
+                                detected_extension = '.mp4'
+                            elif 'video/quicktime' in content_type:
+                                detected_extension = '.mov'
+                            elif 'video/webm' in content_type:
+                                detected_extension = '.webm'
+                            elif 'image/gif' in content_type:
+                                detected_extension = '.gif'
+                            else:
+                                # 使用原有的扩展名，如果无法确定
+                                detected_extension = '.' + inferred_extension if inferred_extension else ''
+
+                    # 动态调整文件路径的扩展名
+                    if detected_extension:
+                        file_path = re.sub(r'\.\w+$', detected_extension, file_path)
+
+                    # 保存文件
+                    if not os.path.isfile(file_path):
+                        with open(file_path, "wb") as f:
+                            f.write(downloaded)
+                            logger.debug("[DEBUG] save " + file_path)
+
+                    success = True
+                    logger.debug("[DEBUG] success " + url + "  " + str(try_count))
+                    break  # 下载成功，退出重试循环
+
+                except RequestException as e:
+                    logger.error(f"[ERROR] 请求失败，错误信息：{e}。尝试次数：{try_count}/{MAX_TRY_COUNT}")
+                    sleep_time = 2 ** try_count  # 指数退避
+                    sleep(sleep_time)
+                except Exception as e:
+                    logger.exception(f"[ERROR] 下载过程中发生错误: {e}")
+                    break  # 对于其他异常，退出重试
 
             if success:
-                file_exist = os.path.isfile(file_path)
-                # 需要分别判断是否需要下载
-                if not file_exist:
-                    with open(file_path, "wb") as f:
-                        f.write(downloaded.content)
-                        logger.debug("[DEBUG] save " + file_path )
-                if (not sqlite_exist) and ("sqlite" in self.write_mode):
+                if "sqlite" in self.write_mode and not sqlite_exist:
                     self.insert_file_sqlite(
-                        file_path, weibo_id, url, downloaded.content
+                        file_path, weibo_id, url, downloaded
                     )
             else:
                 logger.debug("[DEBUG] failed " + url + " TOTALLY")
+                error_file = self.get_filepath(type) + os.sep + "not_downloaded.txt"
+                with open(error_file, "ab") as f:
+                    error_entry = f"{weibo_id}:{file_path}:{url}\n"
+                    f.write(error_entry.encode(sys.stdout.encoding))
         except Exception as e:
             error_file = self.get_filepath(type) + os.sep + "not_downloaded.txt"
             with open(error_file, "ab") as f:
-                url = str(weibo_id) + ":" + file_path + ":" + url + "\n"
-                f.write(url.encode(sys.stdout.encoding))
+                error_entry = f"{weibo_id}:{file_path}:{url}\n"
+                f.write(error_entry.encode(sys.stdout.encoding))
             logger.exception(e)
 
     def sqlite_exist_file(self, url):
