@@ -631,29 +631,25 @@ class Weibo(object):
                     url_path = url.split('?')[0]  # 去除URL中的参数
                     inferred_extension = os.path.splitext(url_path)[1].lower().strip('.')
 
-                    # 对JPEG和PNG文件进行Magic Number检测
-                    if inferred_extension in ['jpg', 'jpeg']:
-                        if not downloaded.startswith(b'\xFF\xD8\xFF'):
-                            logger.debug(f"[DEBUG] JPEG Magic Number 检测失败: {url} ({try_count}/{MAX_TRY_COUNT})")
-                            continue  # Magic Number不匹配，继续重试
+                    # 通过 Magic Number 检测文件类型
+                    if downloaded.startswith(b'\xFF\xD8\xFF'):
+                        # JPEG 文件
                         if not downloaded.endswith(b'\xff\xd9'):
                             logger.debug(f"[DEBUG] JPEG 文件不完整: {url} ({try_count}/{MAX_TRY_COUNT})")
                             continue  # 文件不完整，继续重试
-                        detected_extension = '.jpg'  # 规范化扩展名为 .jpg
-                    elif inferred_extension == 'png':
-                        if not downloaded.startswith(b'\x89PNG\r\n\x1A\n'):
-                            logger.debug(f"[DEBUG] PNG Magic Number 检测失败: {url} ({try_count}/{MAX_TRY_COUNT})")
-                            continue  # Magic Number不匹配，继续重试
+                        detected_extension = '.jpg'
+                    elif downloaded.startswith(b'\x89PNG\r\n\x1A\n'):
+                        # PNG 文件
                         if not downloaded.endswith(b'IEND\xaeB`\x82'):
                             logger.debug(f"[DEBUG] PNG 文件不完整: {url} ({try_count}/{MAX_TRY_COUNT})")
                             continue  # 文件不完整，继续重试
-                        detected_extension = '.png'  # 规范化扩展名为 .png
+                        detected_extension = '.png'
                     else:
-                        # 对于其他类型，不进行Magic Number检测，直接使用URL中的后缀
+                        # 其他类型，使用原有逻辑处理
                         if inferred_extension in ['mp4', 'mov', 'webm', 'gif', 'bmp', 'tiff']:
                             detected_extension = '.' + inferred_extension
                         else:
-                            # 对于未知类型，可以尝试从Content-Type获取扩展名
+                            # 尝试从 Content-Type 获取扩展名
                             content_type = response.headers.get('Content-Type', '').lower()
                             if 'image/jpeg' in content_type:
                                 detected_extension = '.jpg'
