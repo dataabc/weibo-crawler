@@ -25,9 +25,12 @@ logging.config.fileConfig(logging_path)
 logger = logging.getLogger("api")
 
 config = {
-    "user_id_list": ["6067225218", "1445403190"],
+    "user_id_list": [
+        "6067225218", 
+        "1445403190"
+        ],
     "only_crawl_original": 1,
-    "since_date": "2024-12-08",
+    "since_date": 1,
     "start_page": 1,
     "write_mode": [
         "csv",
@@ -79,19 +82,22 @@ def get_running_task():
             return current_task_id, task
     return None, None
 
-def get_config():
-    # 重命名一些key, 但向前兼容
-    handle_config_renaming(config, oldName="filter", newName="only_crawl_original")
-    handle_config_renaming(config, oldName="result_dir_name", newName="user_id_as_folder_name")
-    return config
+def get_config(user_id_list=None):
+    """获取配置，允许动态设置user_id_list"""
+    current_config = config.copy()
+    if user_id_list:
+        current_config['user_id_list'] = user_id_list
+    handle_config_renaming(current_config, oldName="filter", newName="only_crawl_original")
+    handle_config_renaming(current_config, oldName="result_dir_name", newName="user_id_as_folder_name")
+    return current_config
 
-def run_refresh_task(task_id):
+def run_refresh_task(task_id, user_id_list=None):
     global current_task_id
     try:
         tasks[task_id]['state'] = 'PROGRESS'
         tasks[task_id]['progress'] = 0
         
-        config = get_config()
+        config = get_config(user_id_list)
         wb = Weibo(config)
         tasks[task_id]['progress'] = 50
         
@@ -113,6 +119,16 @@ def run_refresh_task(task_id):
 def refresh():
     global current_task_id
     
+    # 获取请求参数
+    data = request.get_json()
+    user_id_list = data.get('user_id_list') if data else None
+    
+    # 验证参数
+    if not user_id_list or not isinstance(user_id_list, list):
+        return jsonify({
+            'error': 'Invalid user_id_list parameter'
+        }), 400
+    
     # 检查是否有正在运行的任务
     with task_lock:
         running_task_id, running_task = get_running_task()
@@ -129,16 +145,18 @@ def refresh():
         tasks[task_id] = {
             'state': 'PENDING',
             'progress': 0,
-            'created_at': datetime.now().isoformat()
+            'created_at': datetime.now().isoformat(),
+            'user_id_list': user_id_list
         }
         current_task_id = task_id
         
-    executor.submit(run_refresh_task, task_id)
+    executor.submit(run_refresh_task, task_id, user_id_list)
     return jsonify({
         'task_id': task_id,
         'status': 'Task started',
         'state': 'PENDING',
-        'progress': 0
+        'progress': 0,
+        'user_id_list': user_id_list
     }), 202
 
 @app.route('/task/<task_id>', methods=['GET'])
@@ -200,5 +218,36 @@ def get_weibo_detail(weibo_id):
         logger.exception(e)
         return {"error": str(e)}, 500
 
+def schedule_refresh():
+    """定时刷新任务"""
+    while True:
+        try:
+            # 检查是否有运行中的任务
+            running_task_id, running_task = get_running_task()
+            if not running_task:
+                task_id = str(uuid.uuid4())
+                tasks[task_id] = {
+                    'state': 'PENDING',
+                    'progress': 0,
+                    'created_at': datetime.now().isoformat(),
+                    'user_id_list': config['user_id_list']  # 使用默认配置
+                }
+                with task_lock:
+                    global current_task_id
+                    current_task_id = task_id
+                executor.submit(run_refresh_task, task_id, config['user_id_list'])
+                logger.info(f"Scheduled task {task_id} started")
+            
+            time.sleep(600)  # 10分钟间隔
+        except Exception as e:
+            logger.exception("Schedule task error")
+            time.sleep(60)  # 发生错误时等待1分钟后重试
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    # 启动定时任务线程
+    scheduler_thread = threading.Thread(target=schedule_refresh, daemon=True)
+    scheduler_thread.start()
+    
+    logger.info("服务启动")
+    # 启动Flask应用
+    app.run(debug=True, use_reloader=False)  # 关闭reloader避免启动两次
