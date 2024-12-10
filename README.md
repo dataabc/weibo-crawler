@@ -1,3 +1,5 @@
+# Weibo Crawler
+
 * [功能](#功能)
 * [输出](#输出)
 * [实例](#实例)
@@ -911,3 +913,9 @@ services:
 
 1. 在`const.py`文件中，将`'NOTIFY': False`中的`False`设为`True`；
 2. 将`'PUSH_KEY': ''`的`''`替换为`'<你的push_key>'`
+
+## API服务
+
+根目录下service.py提供了一个简单的restful api示例，运行`python service.py`启动服务后可以通过http请求定时更新以及查询微博
+
+文档参考[API说明](./API.md)
