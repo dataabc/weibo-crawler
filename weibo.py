@@ -682,6 +682,7 @@ class Weibo(object):
                     break  # 下载成功，退出重试循环
 
                 except RequestException as e:
+                    try_count += 1
                     logger.error(f"[ERROR] 请求失败，错误信息：{e}。尝试次数：{try_count}/{MAX_TRY_COUNT}")
                     sleep_time = 2 ** try_count  # 指数退避
                     sleep(sleep_time)
