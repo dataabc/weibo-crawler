@@ -1,22 +1,24 @@
 # Weibo Crawler
 
-* [功能](#功能)
-* [输出](#输出)
-* [实例](#实例)
-* [运行环境](#运行环境)
-* [使用说明](#使用说明)
-  * [下载脚本](#1下载脚本)
-  * [安装依赖](#2安装依赖)
-  * [程序设置](#3程序设置)
-  * [设置数据库（可选）](#4设置数据库可选)
-  * [运行脚本](#5运行脚本)
-  * [按需求修改脚本（可选）](#6按需求修改脚本可选)
-  * [定期自动爬取微博（可选）](#7定期自动爬取微博可选)
-  * [使用docker](#8使用docker)
-* [如何获取user_id](#如何获取user_id)
-* [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
-* [如何获取cookie（可选）](#如何获取cookie可选)
-* [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
+- [Weibo Crawler](#weibo-crawler)
+  - [功能](#功能)
+  - [输出](#输出)
+  - [实例](#实例)
+  - [运行环境](#运行环境)
+  - [使用说明](#使用说明)
+    - [1.下载脚本](#1下载脚本)
+    - [2.安装依赖](#2安装依赖)
+    - [3.程序设置](#3程序设置)
+    - [4.设置数据库（可选）](#4设置数据库可选)
+    - [5.运行脚本](#5运行脚本)
+    - [6.按需求修改脚本（可选）](#6按需求修改脚本可选)
+    - [7.定期自动爬取微博（可选）](#7定期自动爬取微博可选)
+    - [8.使用docker](#8使用docker)
+  - [如何获取user_id](#如何获取user_id)
+  - [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
+  - [如何获取cookie（可选）](#如何获取cookie可选)
+  - [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
+  - [API服务](#api服务)
 
 ## 功能
 
@@ -126,7 +128,7 @@ python weibo.py
 程序会自动生成一个weibo文件夹，我们以后爬取的所有微博都被存储在weibo文件夹里。然后程序在该文件夹下生成一个名为"Dear-迪丽热巴"的文件夹，迪丽热巴的所有微博爬取结果都在这里。"Dear-迪丽热巴"文件夹里包含一个csv文件、一个img文件夹和一个video文件夹，img文件夹用来存储下载到的图片，video文件夹用来存储下载到的视频。如果你设置了保存数据库功能，这些信息也会保存在数据库里，数据库设置见[设置数据库](#4设置数据库可选)部分。
 
 **csv文件结果如下所示：**
-![](https://picture.cognize.me/cognize/github/weibo-crawler/weibo_csv.png)*1669879400.csv*
+![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/weibo_csv.png)*1669879400.csv*
 
 本csv文件是爬取“全部微博”(原创微博+转发微博)的结果文件。因为迪丽热巴很多微博本身都没有图片、发布工具、位置、话题和@用户等信息，所以当这些内容没有时对应位置为空。"是否原创"列用来标记是否为原创微博，
 当为转发微博时，文件中还包含转发微博的信息。为了简便起见，姑且将转发微博中被转发的原始微博称为**源微博**，它的用户id、昵称、微博id等都在名称前加上源字，以便与目标用户自己发的微博区分。对于转发微博，程序除了获取用户原创部分的信息，还会获取**源用户id**、**源用户昵称**、**源微博id**、**源微博正文**、**源微博原始图片url**、**源微博位置**、**源微博日期**、**源微博工具**、**源微博点赞数**、**源微博评论数**、**源微博转发数**、**源微博话题**、**源微博@用户**等信息。原创微博因为没有这些转发信息，所以对应位置为空。若爬取的是"全部**原创**微博"，则csv文件中不会包含"是否原创"及其之后的转发属性列；
@@ -220,12 +222,12 @@ python weibo.py
 
 **下载的图片如下所示：**
 
-![](https://picture.cognize.me/cognize/github/weibo-crawler/img.png)*img文件夹*
+![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/img.png)*img文件夹*
 
 本次下载了788张图片，大小一共1.21GB，包括她原创微博中的所有图片。图片名为yyyymmdd+微博id的形式，若某条微博存在多张图片，则图片名中还会包括它在微博图片中的序号。若某图片下载失败，程序则会以“weibo_id:pic_url”的形式将出错微博id和图片url写入同文件夹下的not_downloaded.txt里；若图片全部下载成功则不会生成not_downloaded.txt；
 
 **下载的视频如下所示：**
-![](https://picture.cognize.me/cognize/github/weibo-crawler/video.png)*video文件夹*
+![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/video.png)*video文件夹*
 
 本次下载了66个视频，是她原创微博中的视频和原创微博Live Photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序将它们的微博id和视频url分别以“weibo_id:video_url”的形式写到了同文件夹下的not_downloaded.txt里。
 
@@ -860,10 +862,10 @@ services:
 
 1.打开网址<https://weibo.cn>，搜索我们要找的人，如"迪丽热巴"，进入她的主页；
 
-![](https://picture.cognize.me/cognize/github/weibospider/user_home.png)
+![](https://github.com/dataabc/media/blob/master/weiboSpider/images/user_home.png)
 2.按照上图箭头所指，点击"资料"链接，跳转到用户资料页面；
 
-![](https://picture.cognize.me/cognize/github/weibospider/user_info.png)
+![](https://github.com/dataabc/media/blob/master/weiboSpider/images/user_info.png)
 如上图所示，迪丽热巴微博资料页的地址为"<https://weibo.cn/1669879400/info>"，其中的"1669879400"即为此微博的user_id。
 
 事实上，此微博的user_id也包含在用户主页(<https://weibo.cn/u/1669879400?f=search_0>)中，之所以我们还要点击主页中的"资料"来获取user_id，是因为很多用户的主页不是"<https://weibo.cn/user_id?f=search_0>"的形式，而是"<https://weibo.cn/个性域名?f=search_0>"或"<https://weibo.cn/微号?f=search_0>"的形式。其中"微号"和user_id都是一串数字，如果仅仅通过主页地址提取user_id，很容易将"微号"误认为user_id。
@@ -881,13 +883,13 @@ services:
 1.用Chrome打开<https://passport.weibo.cn/signin/login>；
 
 2.输入微博的用户名、密码，登录，如图所示：
-![](https://picture.cognize.me/cognize/github/weibospider/cookie1.png)
+![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie1.png)
 登录成功后会跳转到<https://m.weibo.cn>;
 
 3.按F12键打开Chrome开发者工具，在地址栏输入并跳转到<https://weibo.cn>，跳转后会显示如下类似界面:
-![](https://picture.cognize.me/cognize/github/weibospider/cookie2.png)
+![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie2.png)
 4.依此点击Chrome开发者工具中的Network->Name中的weibo.cn->Headers->Request Headers，"Cookie:"后的值即为我们要找的cookie值，复制即可，如图所示：
-![](https://picture.cognize.me/cognize/github/weibospider/cookie3.png)
+![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie3.png)
 
 ## 如何检测cookie是否有效（可选）
 
