@@ -265,6 +265,8 @@ pip install -r requirements.txt
     "only_crawl_original": 1,
     "remove_html_tag": 1,
     "since_date": "2018-01-01",
+    "start_page": 1,
+    "page_weibo_count": 10,
     "write_mode": ["csv"],
     "original_pic_download": 1,
     "retweet_pic_download": 0,
@@ -346,6 +348,14 @@ since_date值可以是日期，也可以是整数。如果是日期，代表爬�
 代表爬取最近10天的微博，这个说法不是特别准确，准确说是爬取发布时间从**10天前到本程序开始执行时**之间的微博。
 
 **since_date是所有user的爬取起始时间，非常不灵活。如果你要爬多个用户，并且想单独为每个用户设置一个since_date，可以使用[定期自动爬取微博](#7定期自动爬取微博可选)方法二中的方法，该方法可以为多个用户设置不同的since_date，非常灵活**。
+
+**设置start_page**
+
+start_page表示爬取的起始页，默认为1表示从第一页开始爬取
+
+**设置page_weibo_count**
+
+page_weibo_count用于设置爬取一页里的微博数量，一页的微博数量越大，爬取微博效率越高，默认值为10，最小值为1，最大值为100，经测试设置大于100的值后最多也只返回最多100条数据。
 
 **设置query_list(可选)**
 

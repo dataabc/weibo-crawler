@@ -97,6 +97,7 @@ class Weibo(object):
         self.mysql_config = config.get("mysql_config")  # MySQL数据库连接配置，可以不填
         self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
         self.post_config = config.get("post_config")  # post_config，可以不填
+        self.page_weibo_count = config.get("page_weibo_count")  # page_weibo_count，爬取一页的微博数，默认10页
         user_id_list = config["user_id_list"]
         # 避免卡住
         if isinstance(user_id_list, list):
@@ -263,7 +264,7 @@ class Weibo(object):
         logger.info("请在打开的浏览器窗口中完成验证码验证。")
         while True:
             try:
-                            # 等待用户输入
+                # 等待用户输入
                 user_input = input("完成验证码后，请输入 'y' 继续，或输入 'q' 退出：").strip().lower()
 
                 if user_input == 'y':
@@ -291,7 +292,7 @@ class Weibo(object):
             else {"containerid": "230413" + str(self.user_config["user_id"])}
         )
         params["page"] = page
-
+        params["count"] = self.page_weibo_count
         max_retries = 5
         retries = 0
         backoff_factor = 5
@@ -1406,7 +1407,10 @@ class Weibo(object):
         """获取微博页数"""
         try:
             weibo_count = self.user["statuses_count"]
-            page_count = int(math.ceil(weibo_count / 10.0))
+            page_weibo_count = self.page_weibo_count
+            page_count = int(math.ceil(weibo_count / page_weibo_count))
+            if not isinstance(page_weibo_count, int):
+                raise ValueError("config.json中每页爬取的微博数 page_weibo_count 必须是一个整数")
             return page_count
         except KeyError:
             logger.exception(
