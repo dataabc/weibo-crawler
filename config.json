@@ -3,6 +3,7 @@
     "only_crawl_original": 0,
     "since_date": 1,
     "start_page": 1,
+    "page_weibo_count": 10,
     "write_mode": [
         "csv"
     ],
