@@ -134,7 +134,7 @@ class Weibo(object):
         self.weibo = []  # 存储爬取到的所有微博信息
         self.weibo_id_list = []  # 存储爬取到的所有微博id
         self.long_sleep_count_before_each_user = 0 #每个用户前的长时间sleep避免被ban
-
+        self.store_binary_in_db = config.get("store_binary_in_db", 0)
     def validate_config(self, config):
         """验证配置是否正确"""
 
@@ -606,8 +606,9 @@ class Weibo(object):
             sqlite_exist = False
             if "sqlite" in self.write_mode:
                 sqlite_exist = self.sqlite_exist_file(file_path)
-                if not sqlite_exist: 
-                    need_download = True
+                #删除的代码
+                #if not sqlite_exist: 
+                    #need_download = True
 
             if not need_download:
                 return 
@@ -703,9 +704,12 @@ class Weibo(object):
                     error_entry = f"{weibo_id}:{file_path}:{url}\n"
                     f.write(error_entry.encode(sys.stdout.encoding))
         except Exception as e:
+            # 生成原始微博URL
+            original_url = f"https://m.weibo.cn/detail/{weibo_id}"  # 新增
             error_file = self.get_filepath(type) + os.sep + "not_downloaded.txt"
             with open(error_file, "ab") as f:
-                error_entry = f"{weibo_id}:{file_path}:{url}\n"
+                # 修改错误条目格式，添加原始URL
+                error_entry = f"{weibo_id}:{file_path}:{url}:{original_url}\n"  # 修改
                 f.write(error_entry.encode(sys.stdout.encoding))
             logger.exception(e)
 
@@ -726,6 +730,8 @@ class Weibo(object):
     def insert_file_sqlite(self, file_path, weibo_id, url, binary):
         if not weibo_id:
             return
+        if self.store_binary_in_db != 1:  # 新增配置判断
+            return
         extension = Path(file_path).suffix
         if not extension:
             return
@@ -735,7 +741,7 @@ class Weibo(object):
         file_data = OrderedDict()
         file_data["weibo_id"] = weibo_id
         file_data["ext"] = extension
-        file_data["data"] = binary
+        file_data["data"] = binary  # 仅当启用时存储二进制
         file_data["path"] = file_path
         file_data["url"] = url
 
@@ -1811,7 +1817,6 @@ class Weibo(object):
                     weibo, comment_max_count, self.sqlite_insert_comments
                 )
                 count += 1
-                # 为防止被ban抓取一定数量的评论后随机睡3到6秒
                 if count % 20:
                     sleep(random.randint(3, 6))
             if (download_repost) and (weibo["reposts_count"] > 0):
@@ -1819,12 +1824,34 @@ class Weibo(object):
                     weibo, repost_max_count, self.sqlite_insert_reposts
                 )
                 count += 1
-                # 为防止被ban抓取一定数量的转发后随机睡3到6秒
                 if count % 20:
                     sleep(random.randint(3, 6))
 
+            # 下载原创微博的图片和视频
+            if self.original_pic_download and weibo.get("pics"):
+                file_dir = self.get_filepath("img") + os.sep + "原创微博图片"
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
+                self.handle_download("img", file_dir, weibo["pics"], weibo)
+            if self.original_video_download and weibo.get("video_url"):
+                file_dir = self.get_filepath("video") + os.sep + "原创微博视频"
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
+                self.handle_download("video", file_dir, weibo["video_url"], weibo)
+
         for weibo in retweet_list:
             self.sqlite_insert_weibo(con, weibo)
+            # 下载转发微博的图片和视频
+            if self.retweet_pic_download and weibo.get("pics"):
+                file_dir = self.get_filepath("img") + os.sep + "转发微博图片"
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
+                self.handle_download("img", file_dir, weibo["pics"], weibo)
+            if self.retweet_video_download and weibo.get("video_url"):
+                file_dir = self.get_filepath("video") + os.sep + "转发微博视频"
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
+                self.handle_download("video", file_dir, weibo["video_url"], weibo)
 
         con.close()
 
