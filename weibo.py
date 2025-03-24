@@ -606,9 +606,6 @@ class Weibo(object):
             sqlite_exist = False
             if "sqlite" in self.write_mode:
                 sqlite_exist = self.sqlite_exist_file(file_path)
-                #删除的代码
-                #if not sqlite_exist: 
-                    #need_download = True
 
             if not need_download:
                 return 
@@ -1835,9 +1832,6 @@ class Weibo(object):
                 self.handle_download("img", file_dir, weibo["pics"], weibo)
             if self.original_video_download and weibo.get("video_url"):
                 file_dir = self.get_filepath("video") + os.sep + "原创微博视频"
-                if not os.path.isdir(file_dir):
-                    os.makedirs(file_dir)
-                self.handle_download("video", file_dir, weibo["video_url"], weibo)
 
         for weibo in retweet_list:
             self.sqlite_insert_weibo(con, weibo)
