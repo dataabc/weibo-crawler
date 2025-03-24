@@ -1826,18 +1826,6 @@ class Weibo(object):
 
         for weibo in retweet_list:
             self.sqlite_insert_weibo(con, weibo)
-            # 下载转发微博的图片和视频
-            if self.retweet_pic_download and weibo.get("pics"):
-                file_dir = self.get_filepath("img") + os.sep + "转发微博图片"
-                if not os.path.isdir(file_dir):
-                    os.makedirs(file_dir)
-                self.handle_download("img", file_dir, weibo["pics"], weibo)
-            if self.retweet_video_download and weibo.get("video_url"):
-                file_dir = self.get_filepath("video") + os.sep + "转发微博视频"
-                if not os.path.isdir(file_dir):
-                    os.makedirs(file_dir)
-                self.handle_download("video", file_dir, weibo["video_url"], weibo)
-
         con.close()
 
     def sqlite_insert_comments(self, weibo, comments):
