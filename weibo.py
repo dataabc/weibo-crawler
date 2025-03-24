@@ -1824,15 +1824,6 @@ class Weibo(object):
                 if count % 20:
                     sleep(random.randint(3, 6))
 
-            # 下载原创微博的图片和视频
-            if self.original_pic_download and weibo.get("pics"):
-                file_dir = self.get_filepath("img") + os.sep + "原创微博图片"
-                if not os.path.isdir(file_dir):
-                    os.makedirs(file_dir)
-                self.handle_download("img", file_dir, weibo["pics"], weibo)
-            if self.original_video_download and weibo.get("video_url"):
-                file_dir = self.get_filepath("video") + os.sep + "原创微博视频"
-
         for weibo in retweet_list:
             self.sqlite_insert_weibo(con, weibo)
             # 下载转发微博的图片和视频
