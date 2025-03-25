@@ -1787,10 +1787,7 @@ class Weibo(object):
         con = self.get_sqlite_connection()
         weibo_list = []
         retweet_list = []
-        if len(self.write_mode) > 1:
-            info_list = copy.deepcopy(self.weibo[wrote_count:])
-        else:
-            info_list = self.weibo[wrote_count:]
+        info_list = copy.deepcopy(self.weibo[wrote_count:])
         for w in info_list:
             if "retweet" in w:
                 w["retweet"]["retweet_id"] = ""
