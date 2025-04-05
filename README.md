@@ -490,6 +490,9 @@ cookie为可选参数，即可填可不填，具体区别见[添加cookie与不�
 **设置mysql_config（可选）**
 
 mysql_config控制mysql参数配置。如果你不需要将结果信息写入mysql，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mysql且config.json文件中mysql_config的配置与你的mysql配置不一样，请将该值改成你自己mysql中的参数配置。
+**设置store_binary_in_sqlite（可选）**
+store_binary_in_sqlite控制是否往数据库中存储图片或视频的二进制数据。0为关闭，1为开启。
+
 
 **设置mongodb_URI（可选）**
 
