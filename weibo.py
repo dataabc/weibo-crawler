@@ -138,7 +138,7 @@ class Weibo(object):
         self.weibo = []  # 存储爬取到的所有微博信息
         self.weibo_id_list = []  # 存储爬取到的所有微博id
         self.long_sleep_count_before_each_user = 0 #每个用户前的长时间sleep避免被ban
-        self.store_binary_in_db = config.get("store_binary_in_db", 0)
+        self.store_binary_in_sqlite = config.get("store_binary_in_sqlite", 0)
     def validate_config(self, config):
         """验证配置是否正确"""
 
@@ -730,7 +730,7 @@ class Weibo(object):
     def insert_file_sqlite(self, file_path, weibo_id, url, binary):
         if not weibo_id:
             return
-        if self.store_binary_in_db != 1:  # 新增配置判断
+        if self.store_binary_in_sqlite != 1:  # 新增配置判断
             return
         extension = Path(file_path).suffix
         if not extension:
