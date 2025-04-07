@@ -80,6 +80,11 @@ class Weibo(object):
         self.retweet_video_download = config[
             "retweet_video_download"
         ]  # 取值范围为0、1, 0代表不下载转发微博视频,1代表下载
+        
+        # 新增Live Photo视频下载配置
+        self.original_live_photo_download = config.get("original_live_photo_download", 0)
+        self.retweet_live_photo_download = config.get("retweet_live_photo_download", 0)
+        
         self.download_comment = config["download_comment"]  # 1代表下载评论,0代表不下载
         self.comment_max_download_count = config[
             "comment_max_download_count"
@@ -149,6 +154,8 @@ class Weibo(object):
             "retweet_pic_download",
             "original_video_download",
             "retweet_video_download",
+            "original_live_photo_download", 
+            "retweet_live_photo_download", 
             "download_comment",
             "download_repost",
         ]
@@ -538,9 +545,10 @@ class Weibo(object):
 
     def get_long_weibo(self, id):
         """获取长微博"""
+        url = "https://m.weibo.cn/detail/%s" % id
+        logger.info(f"""URL: {url} """)
         for i in range(5):
-            url = "https://m.weibo.cn/detail/%s" % id
-            logger.info(f"""URL: {url} """)
+            sleep(random.uniform(1.0, 2.5))
             html = self.session.get(url, headers=self.headers, verify=False).text
             html = html[html.find('"status":') :]
             html = html[: html.rfind('"call"')]
@@ -551,7 +559,6 @@ class Weibo(object):
             if weibo_info:
                 weibo = self.parse_weibo(weibo_info)
                 return weibo
-            sleep(random.randint(6, 10))
 
     def get_pics(self, weibo_info):
         """获取微博原始图片url"""
@@ -563,42 +570,26 @@ class Weibo(object):
             pics = ""
         return pics
 
-    def get_live_photo(self, weibo_info):
-        """获取live photo中的视频url"""
-        live_photo_list = weibo_info.get("live_photo", [])
-        return live_photo_list
 
+    def get_live_photo_url(self, weibo_info):
+        """获取Live Photo视频URL"""
+        live_photo_list = weibo_info.get("live_photo", [])
+        return ";".join(live_photo_list) if live_photo_list else ""
     def get_video_url(self, weibo_info):
-        """获取微博视频url"""
+        """获取微博普通视频URL"""
         video_url = ""
-        video_url_list = []
         if weibo_info.get("page_info"):
-            if (
-                weibo_info["page_info"].get("urls")
-                or weibo_info["page_info"].get("media_info")
-            ) and weibo_info["page_info"].get("type") == "video":
-                media_info = weibo_info["page_info"]["urls"]
-                if not media_info:
-                    media_info = weibo_info["page_info"]["media_info"]
-                video_url = media_info.get("mp4_720p_mp4")
-                if not video_url:
-                    video_url = media_info.get("mp4_hd_url")
-                if not video_url:
-                    video_url = media_info.get("hevc_mp4_hd")
-                if not video_url:
-                    video_url = media_info.get("mp4_sd_url")
-                if not video_url:
-                    video_url = media_info.get("mp4_ld_mp4")
-                if not video_url:
-                    video_url = media_info.get("stream_url_hd")
-                if not video_url:
-                    video_url = media_info.get("stream_url")
-        if video_url:
-            video_url_list.append(video_url)
-        live_photo_list = self.get_live_photo(weibo_info)
-        if live_photo_list:
-            video_url_list += live_photo_list
-        return ";".join(video_url_list)
+            if weibo_info["page_info"].get("type") == "video":
+                media_info = weibo_info["page_info"].get("urls") or weibo_info["page_info"].get("media_info")
+                if media_info:
+                    video_url = (media_info.get("mp4_720p_mp4") or
+                                media_info.get("mp4_hd_url") or
+                                media_info.get("hevc_mp4_hd") or
+                                media_info.get("mp4_sd_url") or
+                                media_info.get("mp4_ld_mp4") or
+                                media_info.get("stream_url_hd") or
+                                media_info.get("stream_url"))
+        return video_url
 
     def download_one_file(self, url, file_path, type, weibo_id):
         """下载单个文件(图片/视频)"""
@@ -773,13 +764,13 @@ class Weibo(object):
                 file_name = file_prefix + file_suffix
                 file_path = file_dir + os.sep + file_name
                 self.download_one_file(urls, file_path, file_type, w["id"])
-        else:
+        elif file_type == "video" or file_type == "live_photo":
             file_suffix = ".mp4"
             if ";" in urls:
                 url_list = urls.split(";")
-                if url_list[0].endswith(".mov"):
-                    file_suffix = ".mov"
                 for i, url in enumerate(url_list):
+                    if url.endswith(".mov"):
+                        file_suffix = ".mov"
                     file_name = file_prefix + "_" + str(i + 1) + file_suffix
                     file_path = file_dir + os.sep + file_name
                     self.download_one_file(url, file_path, file_type, w["id"])
@@ -791,34 +782,58 @@ class Weibo(object):
                 self.download_one_file(urls, file_path, file_type, w["id"])
 
     def download_files(self, file_type, weibo_type, wrote_count):
-        """下载文件(图片/视频)"""
         try:
             describe = ""
             if file_type == "img":
                 describe = "图片"
                 key = "pics"
-            else:
+            elif file_type == "video":
                 describe = "视频"
                 key = "video_url"
+            elif file_type == "live_photo":
+                describe = "Live Photo视频"
+                key = "live_photo_url"
+            else:
+                return
+            
             if weibo_type == "original":
                 describe = "原创微博" + describe
             else:
                 describe = "转发微博" + describe
+            
             logger.info("即将进行%s下载", describe)
             file_dir = self.get_filepath(file_type)
             file_dir = file_dir + os.sep + describe
-            if not os.path.isdir(file_dir):
-                os.makedirs(file_dir)
-            for w in tqdm(self.weibo[wrote_count:], desc="Download progress"):
+            
+            # 检查是否有文件需要下载
+            has_files = False
+            for w in self.weibo[wrote_count:]:
                 if weibo_type == "retweet":
                     if w.get("retweet"):
                         w = w["retweet"]
                     else:
                         continue
                 if w.get(key):
-                    self.handle_download(file_type, file_dir, w.get(key), w)
-            logger.info("%s下载完毕,保存路径:", describe)
-            logger.info(file_dir)
+                    has_files = True
+                    break
+            
+            if has_files:
+                if not os.path.isdir(file_dir):
+                    os.makedirs(file_dir)
+                
+                for w in tqdm(self.weibo[wrote_count:], desc="Download progress"):
+                    if weibo_type == "retweet":
+                        if w.get("retweet"):
+                            w = w["retweet"]
+                        else:
+                            continue
+                    if w.get(key):
+                        self.handle_download(file_type, file_dir, w.get(key), w)
+                
+                logger.info("%s下载完毕,保存路径:", describe)
+                logger.info(file_dir)
+            else:
+                logger.info("没有%s需要下载", describe)
         except Exception as e:
             logger.exception(e)
 
@@ -946,7 +961,8 @@ class Weibo(object):
             weibo["text"] = text_body
         weibo["article_url"] = self.get_article_url(selector)
         weibo["pics"] = self.get_pics(weibo_info)
-        weibo["video_url"] = self.get_video_url(weibo_info)
+        weibo["video_url"] = self.get_video_url(weibo_info)  # 普通视频URL
+        weibo["live_photo_url"] = self.get_live_photo_url(weibo_info)  # Live Photo视频URL
         weibo["location"] = self.get_location(selector)
         weibo["created_at"] = weibo_info["created_at"]
         weibo["source"] = weibo_info["source"]
@@ -1471,11 +1487,11 @@ class Weibo(object):
                 + os.sep
                 + dir_name
             )
-            if type == "img" or type == "video":
+            if type in ["img", "video", "live_photo"]:
                 file_dir = file_dir + os.sep + type
             if not os.path.isdir(file_dir):
                 os.makedirs(file_dir)
-            if type == "img" or type == "video":
+            if type in ["img", "video", "live_photo"]:
                 return file_dir
             file_path = file_dir + os.sep + str(self.user_config["user_id"]) + "." + type
             return file_path
@@ -2119,11 +2135,16 @@ class Weibo(object):
                 self.download_files("img", "original", wrote_count)
             if self.original_video_download:
                 self.download_files("video", "original", wrote_count)
+            if self.original_live_photo_download:
+                self.download_files("live_photo", "original", wrote_count)
+            # 下载转发微博文件（如果不禁爬转发）
             if not self.only_crawl_original:
                 if self.retweet_pic_download:
                     self.download_files("img", "retweet", wrote_count)
                 if self.retweet_video_download:
                     self.download_files("video", "retweet", wrote_count)
+                if self.retweet_live_photo_download:
+                    self.download_files("live_photo", "retweet", wrote_count)
 
     def get_pages(self):
         """获取全部微博"""

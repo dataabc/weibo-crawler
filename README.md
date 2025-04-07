@@ -272,6 +272,8 @@ pip install -r requirements.txt
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
+    "original_live_photo_download": 1,
+    "retweet_live_photo_download": 0,
     "download_comment":1,
     "comment_max_download_count":1000,
     "download_repost": 1,
@@ -285,6 +287,7 @@ pip install -r requirements.txt
         "password": "123456",
         "charset": "utf8mb4"
     },
+    "store_binary_in_sqlite": 0,
     "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
     "post_config": {
         "api_url": "https://api.example.com",
@@ -411,23 +414,44 @@ retweet_pic_download控制是否下载**转发**微博中的图片，值为1代�
 
 **设置original_video_download**
 
-original_video_download控制是否下载**原创**微博中的视频和**原创**微博**Live Photo**中的视频，值为1代表下载，值为0代表不下载，如
+original_video_download控制是否下载**原创**微博中的视频，值为1代表下载，值为0代表不下载，如
 
 ```
 "original_video_download": 1,
 ```
 
-代表下载原创微博中的视频和原创微博Live Photo中的视频。
+代表下载原创微博中的视频。
 
 **设置retweet_video_download**
 
-retweet_video_download控制是否下载**转发**微博中的视频和**转发**微博**Live Photo**中的视频，值为1代表下载，值为0代表不下载，如
+retweet_video_download控制是否下载**转发**微博中的视频，值为1代表下载，值为0代表不下载，如
 
 ```
 "retweet_video_download": 0,
 ```
 
-代表不下载转发微博中的视频和转发微博Live Photo中的视频。特别注意，本设置只有在爬全部微博（原创+转发），即only_crawl_original值为0时生效，否则程序会跳过转发微博的视频下载。
+代表不下载转发微博中的视频和。特别注意，本设置只有在爬全部微博（原创+转发），即only_crawl_original值为0时生效，否则程序会跳过转发微博的视频下载。
+
+**设置original_live_photo_download**
+
+original_live_photo_download控制是否下载**原创**微博**Live Photo**中的视频，值为1代表下载，值为0代表不下载，如
+
+```
+"original_live_photo_download": 1,
+```
+
+代表下载原创微博中Live Photo的视频。
+
+**设置retweet_live_photo_download**
+
+retweet_live_photo_download控制是否下载原创微博Live Photo中的视频，值为1代表下载，值为0代表不下载，如
+
+```
+"retweet_live_photo_download": 0,
+```
+
+代表不下载转发微博中Live Photo的视频。特别注意，本设置只有在爬全部微博（原创+转发），即only_crawl_original值为0时生效，否则程序会跳过转发微博的视频下载。
+
 
 **设置user_id_as_folder_name**
 

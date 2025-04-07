@@ -11,6 +11,8 @@
     "retweet_pic_download": 0,
     "original_video_download": 1,
     "retweet_video_download": 0,
+    "original_live_photo_download": 1,
+    "retweet_live_photo_download": 0,
     "download_comment": 1,
     "comment_max_download_count": 100,
     "download_repost": 1,
