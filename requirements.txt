@@ -4,3 +4,4 @@ PyMySQL==1.1.1
 Requests==2.32.0
 schedule==1.2.1
 tqdm==4.66.3
+requests>=2.31.0

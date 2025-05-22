@@ -30,6 +30,7 @@ import const
 from util import csvutil
 from util.dateutil import convert_to_days_ago
 from util.notify import push_deer
+from util.llm_analyzer import LLMAnalyzer  # 导入 LLM 分析器
 
 warnings.filterwarnings("ignore")
 
@@ -103,6 +104,10 @@ class Weibo(object):
         self.mongodb_URI = config.get("mongodb_URI")  # MongoDB数据库连接字符串，可以不填
         self.post_config = config.get("post_config")  # post_config，可以不填
         self.page_weibo_count = config.get("page_weibo_count")  # page_weibo_count，爬取一页的微博数，默认10页
+        
+        # 初始化 LLM 分析器
+        self.llm_analyzer = LLMAnalyzer(config) if config.get("llm_config") else None
+        
         user_id_list = config["user_id_list"]
         self.session = requests.Session()
         adapter = HTTPAdapter(max_retries=5)
@@ -975,6 +980,11 @@ class Weibo(object):
         weibo["reposts_count"] = self.string_to_int(weibo_info.get("reposts_count", 0))
         weibo["topics"] = self.get_topics(selector)
         weibo["at_users"] = self.get_at_users(selector)
+        
+        # 使用 LLM 分析微博内容
+        if self.llm_analyzer:
+            weibo = self.llm_analyzer.analyze_weibo(weibo)
+            logger.info("完整分析结果：\n%s", json.dumps(weibo, ensure_ascii=False, indent=2))
         return self.standardize_info(weibo)
 
     def print_user_info(self):
