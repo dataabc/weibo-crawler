@@ -115,6 +115,7 @@ class Weibo(object):
             'sec-fetch-mode': 'navigate',
             'sec-fetch-site': 'same-origin',
             'upgrade-insecure-requests': '1',
+            'Referer': 'https://weibo.com/',
             'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0',
         }
         self.mysql_config = config.get("mysql_config")  # MySQL数据库连接配置，可以不填
