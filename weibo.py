@@ -104,6 +104,7 @@ class Weibo(object):
                 key, value = pair.split('=', 1)
                 cookies[key.strip()] = value.strip()
         self.headers = {
+            'Referer': 'https://weibo.com/',
             'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
             'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
             'cache-control': 'max-age=0',
@@ -1310,12 +1311,11 @@ class Weibo(object):
 
     def is_pinned_weibo(self, info):
         """判断微博是否为置顶微博"""
-        weibo_info = info["mblog"]
-        isTop = weibo_info.get("isTop")
-        if isTop:
-            return True
-        else:
-            return False
+        isTop=False
+        # Only works for sim chinese
+        if "mblog" in info and "title" in info["mblog"] and "text" in info["mblog"]["title"] and info["mblog"]["title"]["text"]=="置顶":
+        	isTop=True
+        return isTop
     
 
     def get_one_page(self, page):
@@ -1363,8 +1363,8 @@ class Weibo(object):
                                 # append模式下不会对置顶微博做任何处理
 
                                 # 由于微博本身的调整，下面判断是否为置顶的代码已失效，默认所有用户第一条均为置顶
-                                # if self.is_pinned_weibo(w):
-                                #     continue
+                                if self.is_pinned_weibo(w):
+                                    continue
                                 if const.CHECK_COOKIE["GUESS_PIN"]:
                                     const.CHECK_COOKIE["GUESS_PIN"] = False
                                     continue
