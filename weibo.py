@@ -1793,6 +1793,7 @@ class Weibo(object):
                 at_users varchar(1000),
                 pics varchar(3000),
                 video_url varchar(1000),
+                live_photo_url varchar(1000),
                 location varchar(100),
                 created_at DATETIME,
                 source varchar(30),
@@ -1968,6 +1969,7 @@ class Weibo(object):
         sqlite_weibo["topics"] = weibo["topics"]
         sqlite_weibo["pics"] = weibo["pics"]
         sqlite_weibo["video_url"] = weibo["video_url"]
+        sqlite_weibo["live_photo_url"] = weibo["live_photo_url"]
         sqlite_weibo["location"] = weibo["location"]
         sqlite_weibo["created_at"] = weibo["full_created_at"]
         sqlite_weibo["source"] = weibo["source"]
@@ -2071,6 +2073,7 @@ class Weibo(object):
                     ,at_users varchar(1000)
                     ,pics varchar(3000)
                     ,video_url varchar(1000)
+                    ,live_photo_url varchar(1000)
                     ,location varchar(100)
                     ,created_at DATETIME
                     ,source varchar(30)
