@@ -1,0 +1,13 @@
+version: '3'
+services:
+  weibo-crawler:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    restart: always  # 容器退出后总是重启
+    volumes:
+      - ./config.json:/app/config.json
+      - ./user_id_list.txt:/app/user_id_list.txt
+      - ./weibo:/app/weibo
+    environment:
+      - schedule_interval=1 # 可选：循环间隔（分钟）
