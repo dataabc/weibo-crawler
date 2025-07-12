@@ -12,6 +12,10 @@ WORKDIR /app
 # 复制项目文件到工作目录
 COPY requirements.txt .
 
+# 使用 Aliyun 镜像源加速 pip
+RUN pip install -i https://mirrors.aliyun.com/pypi/simple/ -U pip \
+    && pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+
 # 安装依赖包
 RUN pip install --no-cache-dir -r requirements.txt
 
