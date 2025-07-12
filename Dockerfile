@@ -1,6 +1,11 @@
 # 设置基础镜像
 FROM python:3.12.0-alpine
 
+# 安装 tzdata 设置时区
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
 # 设置工作目录
 WORKDIR /app
 
