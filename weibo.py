@@ -1882,7 +1882,10 @@ class Weibo(object):
         for comment in comments:
             data = self.parse_sqlite_comment(comment, weibo)
             self.sqlite_insert(con, data, "comments")
-
+            if "comments" in comment and isinstance(comment["comments"], list):
+                for c in comment["comments"]:
+                    data = self.parse_sqlite_comment(c, weibo)
+                    self.sqlite_insert(con, data, "comments")
         con.close()
 
     def sqlite_insert_reposts(self, weibo, reposts):
