@@ -1922,6 +1922,23 @@ class Weibo(object):
         sqlite_comment["pic_url"] = ""
         if comment.get("pic"):
             sqlite_comment["pic_url"] = comment["pic"]["large"]["url"]
+        if  sqlite_comment["pic_url"]:
+            pic_url = sqlite_comment["pic_url"]
+            pic_path = self.get_filepath("comment_img")
+            if not os.path.exists(pic_path):
+                os.makedirs(pic_path)
+            pic_name = "{id}_{created_at}.jpg".format(
+                id=sqlite_comment["id"], created_at=sqlite_comment["created_at"]
+            )
+            pic_full_path = os.path.join(pic_path, pic_name)
+            if not os.path.exists(pic_full_path):
+                try:
+                    response = self.session.get(pic_url, timeout=10)
+                    with open(pic_full_path, "wb") as f:
+                        f.write(response.content)
+                    logger.info("评论图片下载成功: %s", pic_full_path)
+                except Exception as e:
+                    logger.warning("下载评论图片失败: %s", e)
         self._try_get_value("like_count", "like_count", sqlite_comment, comment)
         return sqlite_comment
 
