@@ -522,6 +522,12 @@ store_binary_in_sqlite控制是否往数据库中存储图片或视频的二进�
 
 mongodb_URI是mongodb的连接字符串。如果你不需要将结果信息写入mongodb，这个参数可以忽略，即删除或保留都无所谓；如果你需要写入mongodb，则需要配置为[完整的mongodb URI](https://www.mongodb.com/docs/manual/reference/connection-string/)。
 
+
+**设置post_config（可选）**
+
+post_config是write_mode为post时请求的配置，包括API URL和Token。如果你不需要将结果通过post发出，write_mode不包含post，这个参数可以忽略，即删除或保留都无所谓；如果你需要通过post发出，则需要改成自己的目标API URL和api_token。
+
+
 **设置start_page（可选）**
 
 start_page为爬取微博的初始页数，默认参数为1，即从所爬取用户的当前第一页微博内容开始爬取。
