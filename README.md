@@ -923,10 +923,7 @@ services:
 
 ## 如何获取cookie（可选）
 
-**【推荐】新版通用获取方式：**
-
-本项目现理应支持 **任意微博域名** 的 Cookie。
-1. 打开浏览器，访问 [https://weibo.com](https://weibo.com) 、 [https://m.weibo.cn](https://m.weibo.cn)或[https://weibo.cn](https://weibo.cn)并登录。
+1. 打开浏览器，访问 [https://m.weibo.cn](https://m.weibo.cn)或[https://weibo.cn](https://weibo.cn)并登录。
 2. 按 `F12` 打开开发者工具，切换到 **Network** (网络) 标签页。
 3. 将复制的 Cookie 填入 `config.json`。
 
