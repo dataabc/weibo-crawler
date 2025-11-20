@@ -1537,6 +1537,7 @@ class Weibo(object):
             "头条文章url",
             "原始图片url",
             "视频url",
+            "Live Photo视频url",
             "位置",
             "日期",
             "工具",
