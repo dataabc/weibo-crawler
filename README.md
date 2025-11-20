@@ -923,16 +923,27 @@ services:
 
 ## 如何获取cookie（可选）
 
-1.用Chrome打开<https://passport.weibo.cn/signin/login>；
+**【推荐】新版通用获取方式：**
 
-2.输入微博的用户名、密码，登录，如图所示：
-![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie1.png)
-登录成功后会跳转到<https://m.weibo.cn>;
+得益于最新的代码优化，本项目现在支持 **任意微博域名** 的 Cookie。
+1. 打开浏览器，访问 [https://weibo.com](https://weibo.com) 或 [https://m.weibo.cn](https://m.weibo.cn) 并登录。
+2. 按 `F12` 打开开发者工具，切换到 **Network** (网络) 标签页。
+3. 刷新页面，点击任意一个请求。
+4. 找到 **Request Headers** 中的 `Cookie`，复制其值即可。
+5. 将复制的 Cookie 填入 `config.json`。
 
-3.按F12键打开Chrome开发者工具，在地址栏输入并跳转到<https://weibo.cn>，跳转后会显示如下类似界面:
-![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie2.png)
-4.依此点击Chrome开发者工具中的Network->Name中的weibo.cn->Headers->Request Headers，"Cookie:"后的值即为我们要找的cookie值，复制即可，如图所示：
-![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie3.png)
+---
+
+> **以下为旧版获取方式（仅供参考）：**
+>
+> 1. 用Chrome打开 https://passport.weibo.cn/signin/login ；
+> 2. 输入微博的用户名、密码，登录，如图所示：
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie1.png)
+> 登录成功后会跳转到 https://m.weibo.cn ;
+> 3. 按F12键打开Chrome开发者工具，在地址栏输入并跳转到 https://weibo.cn ，跳转后会显示如下类似界面:
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie2.png)
+> 4. 依此点击Chrome开发者工具中的Network->Name中的weibo.cn->Headers->Request Headers，"Cookie:"后的值即为我们要找的cookie值，复制即可，如图所示：
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie3.png)
 
 ## 如何检测cookie是否有效（可选）
 
