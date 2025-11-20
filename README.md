@@ -14,7 +14,7 @@
     - [6.按需求修改脚本（可选）](#6按需求修改脚本可选)
     - [7.定期自动爬取微博（可选）](#7定期自动爬取微博可选)
     - [8.使用docker](#8使用docker)
-  - [如何获取user_id](#如何获取user_id)
+  - [如何获取user\_id](#如何获取user_id)
   - [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
   - [如何获取cookie（可选）](#如何获取cookie可选)
   - [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
@@ -925,12 +925,10 @@ services:
 
 **【推荐】新版通用获取方式：**
 
-得益于最新的代码优化，本项目现在支持 **任意微博域名** 的 Cookie。
-1. 打开浏览器，访问 [https://weibo.com](https://weibo.com) 或 [https://m.weibo.cn](https://m.weibo.cn) 并登录。
+本项目现理应支持 **任意微博域名** 的 Cookie。
+1. 打开浏览器，访问 [https://weibo.com](https://weibo.com) 、 [https://m.weibo.cn](https://m.weibo.cn)或[https://weibo.cn](https://weibo.cn)并登录。
 2. 按 `F12` 打开开发者工具，切换到 **Network** (网络) 标签页。
-3. 刷新页面，点击任意一个请求。
-4. 找到 **Request Headers** 中的 `Cookie`，复制其值即可。
-5. 将复制的 Cookie 填入 `config.json`。
+3. 将复制的 Cookie 填入 `config.json`。
 
 ---
 
