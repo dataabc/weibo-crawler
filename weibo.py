@@ -98,14 +98,34 @@ class Weibo(object):
             "user_id_as_folder_name", 0
         )  # 结果目录名，取值为0或1，决定结果文件存储在用户昵称文件夹里还是用户id文件夹里
         cookie_string = config.get("cookie")  # 微博cookie，可填可不填
-        cookies = {}
-        for pair in cookie_string.split(';'):
-            if '=' in pair:
-                key, value = pair.split('=', 1)
-                cookies[key.strip()] = value.strip()
+        core_cookies = {}   # 核心包
+        backup_cookies = {} # 备份
+        # Cookie清洗：提取核心字段。若后续预热失败，则回退使用原版 _T_WM/XSRF-TOKEN
+        if cookie_string and "SUB=" in cookie_string:
+            # 1. 提取核心 SUB
+            match_sub = re.search(r'SUB=(.*?)(;|$)', cookie_string)
+            if match_sub:
+                core_cookies['SUB'] = match_sub.group(1)
+            
+            # 2. 提取备份指纹
+            match_twm = re.search(r'_T_WM=(.*?)(;|$)', cookie_string)
+            if match_twm:
+                backup_cookies['_T_WM'] = match_twm.group(1)
+            
+            match_xsrf = re.search(r'XSRF-TOKEN=(.*?)(;|$)', cookie_string)
+            if match_xsrf:
+                backup_cookies['XSRF-TOKEN'] = match_xsrf.group(1)
+        
+        # 保底：如果没有提取到 SUB，说明格式特殊，全量加载
+        if not core_cookies and cookie_string:
+            for pair in cookie_string.split(';'):
+                if '=' in pair:
+                    key, value = pair.split('=', 1)
+                    core_cookies[key.strip()] = value.strip()
+                    
         self.headers = {
-            'Referer': 'https://weibo.com/',
-            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Referer': 'https://m.weibo.cn/',  # 修正 Referer 为 m.weibo.cn
+            'accept': 'application/json, text/plain, */*',
             'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
             'cache-control': 'max-age=0',
             'priority': 'u=0, i',
@@ -128,9 +148,20 @@ class Weibo(object):
         
         user_id_list = config["user_id_list"]
         requests_session = requests.Session()
-        requests_session.cookies.update(cookies)
+        requests_session.cookies.update(core_cookies)
 
         self.session = requests_session
+        try:
+            # 请求只带 SUB
+            # 服务器下发适配 m.weibo.cn 的新指纹
+            self.session.get("https://m.weibo.cn", headers=self.headers, timeout=10)
+            logger.info("Session 预热成功，服务器已下发最新指纹。")
+            
+        except Exception as e:
+            #请求失败时，启用备份
+            logger.warning(f"Session 预热失败 ({e})，正在启用备份 Cookie...")
+            self.session.cookies.update(backup_cookies) # 把旧指纹装进去救急
+
         adapter = HTTPAdapter(max_retries=5)
         self.session.mount('http://', adapter)
         self.session.mount('https://', adapter)
@@ -590,7 +621,10 @@ class Weibo(object):
         """获取微博原始图片url"""
         if weibo_info.get("pics"):
             pic_info = weibo_info["pics"]
-            pic_list = [pic["large"]["url"] for pic in pic_info]
+            pic_list = [
+                pic['large']['url'] for pic in pic_info
+                if isinstance(pic, dict) and pic.get('large')
+            ]
             pics = ",".join(pic_list)
         else:
             pics = ""
