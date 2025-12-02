@@ -412,6 +412,7 @@ class Weibo(object):
             "性别",
             "生日",
             "所在地",
+            "IP属地",
             "学习经历",
             "公司",
             "注册时间",
@@ -479,6 +480,7 @@ class Weibo(object):
                 sunshine varchar(20),
                 birthday varchar(40),
                 location varchar(200),
+                ip_location varchar(50),
                 education varchar(200),
                 company varchar(200),
                 description varchar(400),
@@ -539,10 +541,11 @@ class Weibo(object):
                     params = {
                         "containerid": "230283" + str(self.user_config["user_id"]) + "_-_INFO"
                     }
-                    zh_list = ["生日", "所在地", "小学", "初中", "高中", "大学", "公司", "注册时间", "阳光信用"]
+                    zh_list = ["生日", "所在地", "IP属地", "小学", "初中", "高中", "大学", "公司", "注册时间", "阳光信用"]
                     en_list = [
                         "birthday",
                         "location",
+                        "ip_location",
                         "education",
                         "education",
                         "education",
@@ -1057,6 +1060,7 @@ class Weibo(object):
         logger.info("性别：%s", gender)
         logger.info("生日：%s", self.user["birthday"])
         logger.info("所在地：%s", self.user["location"])
+        logger.info("IP属地：%s", self.user.get("ip_location", "未获取"))        
         logger.info("教育经历：%s", self.user["education"])
         logger.info("公司：%s", self.user["company"])
         logger.info("阳光信用：%s", self.user["sunshine"])
@@ -2176,6 +2180,7 @@ class Weibo(object):
         sqlite_user["follow_count"] = user["follow_count"]
         sqlite_user["birthday"] = user["birthday"]
         sqlite_user["location"] = user["location"]
+        sqlite_user["ip_location"] = user.get("ip_location", "")         
         sqlite_user["edu"] = user["education"]
         sqlite_user["company"] = user["company"]
         sqlite_user["reg_date"] = user["registration_time"]
@@ -2229,6 +2234,7 @@ class Weibo(object):
                     ,follow_count integer
                     ,birthday varchar(10)
                     ,location varchar(32)
+                    ,ip_location varchar(32)
                     ,edu varchar(32)
                     ,company varchar(32)
                     ,reg_date DATETIME
