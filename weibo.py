@@ -370,13 +370,15 @@ class Weibo(object):
                 response.raise_for_status()  # 如果响应状态码不是 200，会抛出 HTTPError
                 js = response.json()
                 if 'data' in js:
+                    logger.info(f"成功获取到页面 {page} 的数据。")
+                    return js
                     #此处逻辑 与外部取值相同
-                    if 'card_group' in js["data"]["cards"][0]:
-                        logger.info(f"成功获取到页面 {page} 的数据。")
-                        return js
-                    else:
-                        logger.warning(f"页面 {page} 中没有微博数据，可能设置了显示时间限制.")
-                        return {"ok": False}
+                    #if 'card_group' in js["data"]["cards"][0]:
+                    #    logger.info(f"成功获取到页面 {page} 的数据。")
+                    #    return js
+                    #else:
+                    #    logger.warning(f"页面 {page} 中没有微博数据，可能设置了显示时间限制.")
+                    #    return {"ok": False}
                 else:
                     logger.warning("未能获取到数据，可能需要验证码验证。")
                     if self.handle_captcha(js):
