@@ -1088,6 +1088,7 @@ class Weibo(object):
             logger.info("转发数：%d", weibo["reposts_count"])
             logger.info("话题：%s", weibo["topics"])
             logger.info("@用户：%s", weibo["at_users"])
+            logger.info("已编辑，编辑次数：%d" % weibo.get("edit_count", 0) if weibo.get("edited") else "未编辑")            
             logger.info("url：https://m.weibo.cn/detail/%d", weibo["id"])
         except OSError:
             pass
@@ -1142,6 +1143,9 @@ class Weibo(object):
             weibo["created_at"], weibo["full_created_at"] = self.standardize_date(
                 weibo_info["created_at"]
             )
+            edit_count = weibo_info.get("edit_count", 0)
+            weibo["edited"] = edit_count > 0
+            weibo["edit_count"] = edit_count
             return weibo
         except Exception as e:
             logger.exception(e)
@@ -1590,6 +1594,8 @@ class Weibo(object):
             "话题",
             "@用户",
             "完整日期",
+            "是否编辑过",
+            "编辑次数",            
         ]
         if not self.only_crawl_original:
             result_headers2 = ["是否原创", "源用户id", "源用户昵称"]
@@ -1845,6 +1851,8 @@ class Weibo(object):
                 comments_count INT,
                 reposts_count INT,
                 retweet_id varchar(20),
+                edited BOOLEAN DEFAULT 0,
+                edit_count INT DEFAULT 0,
                 PRIMARY KEY (id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"""
         self.mysql_create_table(mysql_config, create_table)
@@ -2158,6 +2166,8 @@ class Weibo(object):
         sqlite_weibo["reposts_count"] = weibo["reposts_count"]
         sqlite_weibo["retweet_id"] = weibo["retweet_id"]
         sqlite_weibo["at_users"] = weibo["at_users"]
+        sqlite_weibo["edited"] = weibo.get("edited", False)
+        sqlite_weibo["edit_count"] = weibo.get("edit_count", 0)
         return sqlite_weibo
 
     def user_to_sqlite(self):
@@ -2241,6 +2251,8 @@ class Weibo(object):
                     ,main_page_url text
                     ,avatar_url text
                     ,bio text
+                    ,edited BOOLEAN DEFAULT 0
+                    ,edit_count INT DEFAULT 0
                     ,PRIMARY KEY (id)
                 );
 
