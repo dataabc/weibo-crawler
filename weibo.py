@@ -531,6 +531,7 @@ class Weibo(object):
         
         while retries < max_retries:
             try:
+                logger.info(f"准备获取ID：{self.user_config['user_id']}的用户信息第{retries+1}次。")
                 response = self.session.get(url, params=params, headers=self.headers, timeout=10)
                 response.raise_for_status()
                 js = response.json()
@@ -588,7 +589,7 @@ class Weibo(object):
                     self.user_to_database()
                     logger.info(f"成功获取到用户 {self.user_config['user_id']} 的信息。")
                     return 0
-                else:
+                elif isinstance(js.get("url"), str) and js.get("url").strip():
                     logger.warning("未能获取到用户信息，可能需要验证码验证。")
                     if self.handle_captcha(js):
                         logger.info("用户已完成验证码验证，继续请求用户信息。")
@@ -597,6 +598,12 @@ class Weibo(object):
                     else:
                         logger.error("验证码验证失败或未完成，程序将退出。")
                         sys.exit()
+                elif isinstance(js.get("msg"), str) and "这里还没有内容" in js.get("msg"):
+                    logger.warning("未能获取到用户信息，可能账号已注销或用户id有误。")
+                    return 1
+                else:
+                    logger.warning("未能获取到用户信息。")
+                    return 1
             except RequestException as e:
                 retries += 1
                 sleep_time = backoff_factor * (2 ** retries)
