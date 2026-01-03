@@ -598,7 +598,7 @@ class Weibo(object):
                     else:
                         logger.error("验证码验证失败或未完成，程序将退出。")
                         sys.exit()
-                elif isinstance(js.get("url"), str) and "这里还没有内容" in js.get("msg"):
+                elif isinstance(js.get("msg"), str) and "这里还没有内容" in js.get("msg"):
                     logger.warning("未能获取到用户信息，可能账号已注销或用户id有误。")
                     return 1
                 else:
