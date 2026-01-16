@@ -32,5 +32,6 @@
     "post_config": {
         "api_url": "https://api.example.com",
         "api_token": ""
-    }
+    },
+    "sort_by_created_time": 1
 }
