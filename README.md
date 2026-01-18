@@ -1,24 +1,24 @@
 # Weibo Crawler
 
 - [Weibo Crawler](#weibo-crawler)
-    - [功能](#功能)
-    - [输出](#输出)
-    - [实例](#实例)
-    - [运行环境](#运行环境)
-    - [使用说明](#使用说明)
-        - [1.下载脚本](#1下载脚本)
-        - [2.安装依赖](#2安装依赖)
-        - [3.程序设置](#3程序设置)
-        - [4.设置数据库（可选）](#4设置数据库可选)
-        - [5.运行脚本](#5运行脚本)
-        - [6.按需求修改脚本（可选）](#6按需求修改脚本可选)
-        - [7.定期自动爬取微博（可选）](#7定期自动爬取微博可选)
-        - [8.使用docker](#8使用docker)
-    - [如何获取user\_id](#如何获取user_id)
-    - [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
-    - [如何获取cookie（可选）](#如何获取cookie可选)
-    - [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
-    - [API服务](#api服务)
+  - [功能](#功能)
+  - [输出](#输出)
+  - [实例](#实例)
+  - [运行环境](#运行环境)
+  - [使用说明](#使用说明)
+    - [1.下载脚本](#1下载脚本)
+    - [2.安装依赖](#2安装依赖)
+    - [3.程序设置](#3程序设置)
+    - [4.设置数据库（可选）](#4设置数据库可选)
+    - [5.运行脚本](#5运行脚本)
+    - [6.按需求修改脚本（可选）](#6按需求修改脚本可选)
+    - [7.定期自动爬取微博（可选）](#7定期自动爬取微博可选)
+    - [8.使用docker](#8使用docker)
+  - [如何获取user\_id](#如何获取user_id)
+  - [添加cookie与不添加cookie的区别（可选）](#添加cookie与不添加cookie的区别可选)
+  - [如何获取cookie（可选）](#如何获取cookie可选)
+  - [如何检测cookie是否有效（可选）](#如何检测cookie是否有效可选)
+  - [API服务](#api服务)
 
 ## 功能
 
@@ -292,9 +292,7 @@ pip install -r requirements.txt
     "post_config": {
         "api_url": "https://api.example.com",
         "api_token": ""
-    },
-    "write_time_in_exif": 1,
-    "change_file_time": 1
+    }
 }
 ```
 
@@ -389,7 +387,7 @@ remove_html_tag控制是否移除抓取到的weibo正文和评论中的html tag�
 write_mode控制结果文件格式，取值范围是csv、json、post、mongo、mysql和sqlite，分别代表将结果写入csv、json文件，通过POST发出，MongoDB、MySQL和SQLite数据库。write_mode可以同时包含这些取值中的一个或几个，如：
 
 ```
-"write_mode": ["csv", "json"],
+"write_mode": ["csv", "json", "markdown"],
 ```
 
 代表将结果信息写入csv文件和json文件。特别注意，如果你想写入数据库，除了在write_mode添加对应数据库的名字外，还应该安装相关数据库和对应python模块，具体操作见[设置数据库](#4设置数据库可选)部分。
@@ -541,16 +539,6 @@ write_time_in_exif控制是否启用将created_time写入图片exif信息中，�
 
 ```
 "write_time_in_exif": 1,
-```
-
-值为1，表示启用；值为0，表示不启用。
-
-**设置change_file_time**
-
-change_file_time控制是否修改文件的系统属性（修改日期）为created_time，支持所有下载的文件格式，可取值为0和1，默认为1：
-
-```
-"change_file_time": 1,
 ```
 
 值为1，表示启用；值为0，表示不启用。
@@ -955,12 +943,12 @@ services:
 >
 > 1. 用Chrome打开 https://passport.weibo.cn/signin/login ；
 > 2. 输入微博的用户名、密码，登录，如图所示：
-     > ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie1.png)
-     > 登录成功后会跳转到 https://m.weibo.cn ;
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie1.png)
+> 登录成功后会跳转到 https://m.weibo.cn ;
 > 3. 按F12键打开Chrome开发者工具，在地址栏输入并跳转到 https://weibo.cn ，跳转后会显示如下类似界面:
-     > ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie2.png)
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie2.png)
 > 4. 依此点击Chrome开发者工具中的Network->Name中的weibo.cn->Headers->Request Headers，"Cookie:"后的值即为我们要找的cookie值，复制即可，如图所示：
-     > ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie3.png)
+> ![](https://github.com/dataabc/media/blob/master/weiboSpider/images/cookie3.png)
 
 ## 如何检测cookie是否有效（可选）
 
@@ -970,11 +958,11 @@ services:
 
 1. 使用cookie的来源账号发布一条微博，该账号和微博需要满足以下条件：
 
-    * 该微博必须是**非公开可见**的，后续需要根据可见性判断cookie是否有效；
+   * 该微博必须是**非公开可见**的，后续需要根据可见性判断cookie是否有效；
 
-    * 该微博需要是最近5条微博，不能在发布测试用微博内容后又发很多新微博；
+   * 该微博需要是最近5条微博，不能在发布测试用微博内容后又发很多新微博；
 
-    * 在`config.json`配置中的since_date之后，该账号必须有大于9条微博。
+   * 在`config.json`配置中的since_date之后，该账号必须有大于9条微博。
 
 2. 将`const.py`文件中`'CHECK': False`中的`False`改为`True`，`'HIDDEN_WEIBO': '微博内容'`中的`微博内容`改为你发的限定范围的微博。
 

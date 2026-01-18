@@ -7,5 +7,5 @@ def push_deer(append_str):
         'pushkey': const.NOTIFY['PUSH_KEY'],
         'text': append_str,
     }
-    # 这里为了避免证书验证，使用http而非https
-    requests.get(url="http://api2.pushdeer.com/message/push", params=params)
+    # 使用HTTPS，如果在这个环境中遇到证书问题，可以设置 verify=False
+    requests.get(url="https://api2.pushdeer.com/message/push", params=params, verify=False)
