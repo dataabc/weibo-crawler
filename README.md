@@ -292,7 +292,9 @@ pip install -r requirements.txt
     "post_config": {
         "api_url": "https://api.example.com",
         "api_token": ""
-    }
+    },
+    "write_time_in_exif": 1,
+    "change_file_time": 1
 }
 ```
 
