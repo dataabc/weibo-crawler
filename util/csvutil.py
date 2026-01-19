@@ -8,7 +8,7 @@ def insert_or_update_user(logger, headers, result_data, file_path):
     first_write = True if not os.path.isfile(file_path) else False
     if os.path.isfile(file_path):
         # 文件已存在，直接查看有没有，有就直接return了
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8-sig') as f:
             for line in f:
                 if line.split(',')[0] == result_data[0][0]:
                     return line.split(',')[len(line.split(',')) - 1].replace('\n', '')
@@ -27,13 +27,13 @@ def insert_or_update_user(logger, headers, result_data, file_path):
 def update_last_weibo_id(userid, new_last_weibo_msg, file_path):
     """更新用户csv中的最新微博id"""
     lines = []
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8-sig') as f:
         for line in f:
             if line.split(',')[0] == str(userid):
                 line = line.replace(line.split(
                     ',')[len(line.split(',')) - 1], new_last_weibo_msg + '\n')
             lines.append(line)
         f.close()
-    with open(file_path, 'w', encoding='utf-8') as f:
+    with open(file_path, 'w', encoding='utf-8-sig') as f:
         for line in lines:
             f.write(line)

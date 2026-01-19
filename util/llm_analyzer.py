@@ -39,7 +39,8 @@ class LLMAnalyzer:
             response = requests.post(
                 f"{self.api_base}/chat/completions",
                 headers=headers,
-                json=data
+                json=data,
+                timeout=self.config.get('timeout', 30)  # 默认30秒超时
             )
             
             if response.status_code == 200:

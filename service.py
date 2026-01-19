@@ -1,4 +1,4 @@
-from weibo import Weibo, handle_config_renaming
+from weibo import Weibo, handle_config_renaming, get_config as get_weibo_config
 import const
 import logging
 import logging.config
@@ -15,7 +15,6 @@ from datetime import datetime
 # 1896820725 天津股侠 2024-12-09T16:47:04
 
 DATABASE_PATH = './weibo/weibodata.db'
-print(DATABASE_PATH)
 
 # 如果日志文件夹不存在，则创建
 if not os.path.isdir("log/"):
@@ -24,43 +23,17 @@ logging_path = os.path.split(os.path.realpath(__file__))[0] + os.sep + "logging.
 logging.config.fileConfig(logging_path)
 logger = logging.getLogger("api")
 
-config = {
-    "user_id_list": [
-        "6067225218", 
-        "1445403190"
-        ],
-    "only_crawl_original": 1,
-    "since_date": 1,
-    "start_page": 1,
-    "write_mode": [
-        "csv",
-        "json",
-        "sqlite"
-    ],
-    "original_pic_download": 0,
-    "retweet_pic_download": 0,
-    "original_video_download": 0,
-    "retweet_video_download": 0,
-    "download_comment": 0,
-    "comment_max_download_count": 100,
-    "download_repost": 0,
-    "repost_max_download_count": 100,
-    "user_id_as_folder_name": 0,
-    "remove_html_tag": 1,
-    "cookie": "your weibo cookie",
-    "mysql_config": {
-        "host": "localhost",
-        "port": 3306,
-        "user": "root",
-        "password": "123456",
-        "charset": "utf8mb4"
-    },
-    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
-    "post_config": {
-        "api_url": "https://api.example.com",
-        "api_token": ""
-    }
-}
+# 从 config.json 加载配置（复用 weibo.py 中的 get_config 函数）
+def load_config():
+    """加载配置文件"""
+    try:
+        return get_weibo_config()
+    except Exception as e:
+        logger.error(f"加载配置文件失败: {e}")
+        raise
+
+# 初始化时加载配置
+base_config = load_config()
 
 app = Flask(__name__)
 app.config['JSON_AS_ASCII'] = False  # 确保JSON响应中的中文不会被转义
@@ -69,10 +42,30 @@ app.config['JSONIFY_MIMETYPE'] = 'application/json;charset=utf-8'
 # 添加线程池和任务状态跟踪
 executor = ThreadPoolExecutor(max_workers=1)  # 限制只有1个worker避免并发爬取
 tasks = {}  # 存储任务状态
+MAX_TASKS = 100  # 最大保留任务数，防止内存泄漏
 
 # 在executor定义后添加任务锁相关变量
 current_task_id = None
 task_lock = threading.Lock()
+
+def cleanup_old_tasks():
+    """清理旧任务，保留最近的MAX_TASKS个任务"""
+    if len(tasks) <= MAX_TASKS:
+        return
+    
+    # 按创建时间排序，删除最旧的任务
+    sorted_tasks = sorted(
+        tasks.items(),
+        key=lambda x: x[1].get('created_at', ''),
+        reverse=True
+    )
+    
+    # 保留最近的MAX_TASKS个，删除其余的
+    for task_id, _ in sorted_tasks[MAX_TASKS:]:
+        if task_id != current_task_id:  # 不删除当前运行的任务
+            del tasks[task_id]
+    
+    logger.info(f"已清理旧任务，当前任务数: {len(tasks)}")
 
 def get_running_task():
     """获取当前运行的任务信息"""
@@ -84,7 +77,7 @@ def get_running_task():
 
 def get_config(user_id_list=None):
     """获取配置，允许动态设置user_id_list"""
-    current_config = config.copy()
+    current_config = base_config.copy()
     if user_id_list:
         current_config['user_id_list'] = user_id_list
     handle_config_renaming(current_config, oldName="filter", newName="only_crawl_original")
@@ -114,6 +107,7 @@ def run_refresh_task(task_id, user_id_list=None):
         with task_lock:
             if current_task_id == task_id:
                 current_task_id = None
+            cleanup_old_tasks()  # 清理旧任务
 
 @app.route('/refresh', methods=['POST'])
 def refresh():
@@ -230,12 +224,12 @@ def schedule_refresh():
                     'state': 'PENDING',
                     'progress': 0,
                     'created_at': datetime.now().isoformat(),
-                    'user_id_list': config['user_id_list']  # 使用默认配置
+                    'user_id_list': base_config['user_id_list']  # 使用默认配置
                 }
                 with task_lock:
                     global current_task_id
                     current_task_id = task_id
-                executor.submit(run_refresh_task, task_id, config['user_id_list'])
+                executor.submit(run_refresh_task, task_id, base_config['user_id_list'])
                 logger.info(f"Scheduled task {task_id} started")
             
             time.sleep(600)  # 10分钟间隔
