@@ -2533,8 +2533,6 @@ class Weibo(object):
                     ,main_page_url text
                     ,avatar_url text
                     ,bio text
-                    ,edited BOOLEAN DEFAULT 0
-                    ,edit_count INT DEFAULT 0
                     ,PRIMARY KEY (id)
                 );
 
@@ -2557,6 +2555,8 @@ class Weibo(object):
                     ,comments_count INT
                     ,reposts_count INT
                     ,retweet_id varchar(20)
+                    ,edited BOOLEAN DEFAULT 0
+                    ,edit_count INT DEFAULT 0                    
                     ,PRIMARY KEY (id)
                 );
 
