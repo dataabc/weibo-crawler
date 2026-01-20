@@ -2712,7 +2712,7 @@ class Weibo(object):
             img_path = os.path.join(img_dir, img_filename)
 
             # 下载图片
-            self.download_one_file(pic_url, img_path, "img", weibo["id"])
+            self.download_one_file(pic_url, img_path, "img", weibo["id"], created_at)
 
     def generate_markdown_file(self, date, weibo_list):
         """生成单个日期的markdown文件（增量模式）"""
