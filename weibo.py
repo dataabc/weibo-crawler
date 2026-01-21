@@ -1716,6 +1716,12 @@ class Weibo(object):
                                     DTFORMAT,
                                 )
                             if created_at < since_date:
+                                # 检查是否为置顶微博
+                                is_pinned = w.get("mblog", {}).get("mblogtype", 0) == 2
+                                if is_pinned:
+                                    logger.debug(f"[置顶微博] 微博ID={wb['id']}, 发布时间={created_at}, 是置顶微博，跳过但继续检查后续微博")
+                                    continue
+                                
                                 logger.debug(f"[日期过滤] 微博ID={wb['id']}, 发布时间={created_at}, 起始时间={since_date}, 被跳过")
                                 # 如果要检查还没有检查cookie，不能直接跳出
                                 if const.CHECK_COOKIE["CHECK"] and (
