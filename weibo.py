@@ -73,6 +73,7 @@ class Weibo(object):
         self.write_mode = config[
             "write_mode"
         ]  # 结果信息保存类型，为list形式，可包含csv、mongo和mysql三种类型
+        self.markdown_split_by = config.get("markdown_split_by", "day") # markdown文件分割方式，day/day_by_month/month/year/all
         self.original_pic_download = config[
             "original_pic_download"
         ]  # 取值范围为0、1, 0代表不下载原创微博图片,1代表下载
@@ -450,6 +451,12 @@ class Weibo(object):
         # 验证运行模式
         if "sqlite" not in config["write_mode"] and const.MODE == "append":
             logger.warning("append模式下请将sqlite加入write_mode中")
+            sys.exit()
+        
+        # 验证markdown_split_by
+        markdown_split_by = config.get("markdown_split_by", "day")
+        if markdown_split_by not in ["day", "day_by_month", "month", "year", "all"]:
+            logger.warning("markdown_split_by值应为day、day_by_month、month、year或all,请重新输入")
             sys.exit()
 
         # 验证user_id_list
@@ -1153,8 +1160,6 @@ class Weibo(object):
                 describe = "转发微博" + describe
             
             logger.info("即将进行%s下载", describe)
-            file_dir = self.get_filepath(file_type)
-            file_dir = file_dir + os.sep + describe
             
             # 检查是否有文件需要下载
             has_files = False
@@ -1168,7 +1173,50 @@ class Weibo(object):
                     has_files = True
                     break
             
-            if has_files:
+            if not has_files:
+                logger.info("没有%s需要下载", describe)
+                return
+            
+            # 对于 markdown 模式下的 day_by_month，按月份分组下载
+            if "markdown" in self.write_mode and self.markdown_split_by == "day_by_month":
+                base_dir = self.get_filepath("markdown")
+                
+                for w in tqdm(self.weibo[wrote_count:], desc="Download progress"):
+                    # 对于转发微博，使用父微博的日期确定月份文件夹
+                    # 这样转发的内容会与父微博保存在同一个月份目录中
+                    parent_created_at = w.get("created_at", "")
+                    if not parent_created_at:
+                        continue
+                    try:
+                        parent_time_obj = datetime.strptime(parent_created_at, DTFORMAT)
+                        month_folder = parent_time_obj.strftime("%Y-%m")
+                    except ValueError:
+                        continue
+                    
+                    weibo_data = w
+                    if weibo_type == "retweet":
+                        if w.get("retweet"):
+                            weibo_data = w["retweet"]
+                        else:
+                            continue
+                    
+                    if not weibo_data.get(key):
+                        continue
+                    
+                    # 创建月份子目录下的文件目录（使用父微博的月份）
+                    month_dir = os.path.join(base_dir, month_folder)
+                    file_dir = os.path.join(month_dir, describe)
+                    if not os.path.isdir(file_dir):
+                        os.makedirs(file_dir)
+                    
+                    self.handle_download(file_type, file_dir, weibo_data.get(key), weibo_data)
+                
+                logger.info("%s下载完毕", describe)
+            else:
+                # 原有逻辑：所有文件放在同一目录
+                file_dir = self.get_filepath(file_type)
+                file_dir = file_dir + os.sep + describe
+                
                 if not os.path.isdir(file_dir):
                     os.makedirs(file_dir)
                 
@@ -1183,8 +1231,6 @@ class Weibo(object):
                 
                 logger.info("%s下载完毕,保存路径:", describe)
                 logger.info(file_dir)
-            else:
-                logger.info("没有%s需要下载", describe)
         except Exception as e:
             logger.exception(e)
 
@@ -2633,61 +2679,102 @@ class Weibo(object):
 
     def write_markdown(self, wrote_count):
         """将爬到的信息写入markdown文件"""
-        # 按日期分组微博
-        weibo_by_date = self.group_weibo_by_date(wrote_count)
+        # 按配置分组微博
+        weibo_by_group = self.group_weibo_by_config(wrote_count)
 
         # 先下载图片（如果需要）
         if self.original_pic_download:
             self.download_markdown_images(wrote_count)
 
-        # 为每个日期生成markdown文件
-        for date, weibo_list in weibo_by_date.items():
-            self.generate_markdown_file(date, weibo_list)
+        # 为每个分组生成markdown文件
+        for group_key, weibo_list in weibo_by_group.items():
+            self.generate_markdown_file(group_key, weibo_list)
 
         logger.info("%d条微博写入markdown文件完毕", self.got_count - wrote_count)
 
-    def group_weibo_by_date(self, wrote_count):
-        """按日期分组微博"""
-        weibo_by_date = {}
+    def group_weibo_by_config(self, wrote_count):
+        """按配置分组微博"""
+        weibo_by_group = {}
         for w in self.weibo[wrote_count:]:
             # 获取微博发布日期（YYYY-MM-DD格式）
             created_at = w.get("created_at", "")
             if not created_at:
                 continue
 
-            # 解析日期，提取 YYYY-MM-DD 部分
+            # 解析日期
             try:
                 date_obj = datetime.strptime(created_at, DTFORMAT)
-                date_str = date_obj.strftime("%Y-%m-%d")
+                
+                if self.markdown_split_by in ["day", "day_by_month"]:
+                    group_key = date_obj.strftime("%Y-%m-%d")
+                elif self.markdown_split_by == "month":
+                    group_key = date_obj.strftime("%Y-%m")
+                elif self.markdown_split_by == "year":
+                    group_key = date_obj.strftime("%Y")
+                elif self.markdown_split_by == "all":
+                    group_key = "all"
+                else:
+                    group_key = date_obj.strftime("%Y-%m-%d")
 
-                if date_str not in weibo_by_date:
-                    weibo_by_date[date_str] = []
-                weibo_by_date[date_str].append(w)
+                if group_key not in weibo_by_group:
+                    weibo_by_group[group_key] = []
+                weibo_by_group[group_key].append(w)
             except ValueError:
                 logger.warning(f"无法解析微博日期: {created_at}")
                 continue
 
-        return weibo_by_date
+        return weibo_by_group
 
     def download_markdown_images(self, wrote_count):
         """为Markdown格式下载图片，使用指定的命名规则"""
         # 获取用户目录
         file_dir = self.get_filepath("markdown")
-        img_dir = os.path.join(file_dir, "img")
-        if not os.path.isdir(img_dir):
-            os.makedirs(img_dir)
+        
+        # 对于 day_by_month 模式，按月分组图片
+        if self.markdown_split_by == "day_by_month":
+            # 按月分组微博，然后为每个月创建img目录
+            for w in self.weibo[wrote_count:]:
+                created_at = w.get("created_at", "")
+                if not created_at:
+                    continue
+                try:
+                    time_obj = datetime.strptime(created_at, DTFORMAT)
+                    month_folder = time_obj.strftime("%Y-%m")
+                except ValueError:
+                    continue
+                
+                month_dir = os.path.join(file_dir, month_folder)
+                img_dir = os.path.join(month_dir, "img")
+                if not os.path.isdir(img_dir):
+                    os.makedirs(img_dir)
+                
+                # 处理原创微博图片
+                if w.get("pics"):
+                    self._download_weibo_images(w, img_dir, is_retweet=False)
 
-        # 下载图片
-        for w in self.weibo[wrote_count:]:
-            # 处理原创微博图片
-            if w.get("pics"):
-                self._download_weibo_images(w, img_dir, is_retweet=False)
+                # 处理转发微博图片（使用父微博的月份文件夹）
+                if not self.only_crawl_original and w.get("retweet"):
+                    retweet = w["retweet"]
+                    if retweet.get("pics"):
+                        # 转发微博的图片保存到父微博的月份文件夹中
+                        self._download_weibo_images(retweet, img_dir, is_retweet=True)
+        else:
+            # 其他模式：所有图片放在同一个 img 目录
+            img_dir = os.path.join(file_dir, "img")
+            if not os.path.isdir(img_dir):
+                os.makedirs(img_dir)
 
-            # 处理转发微博图片
-            if not self.only_crawl_original and w.get("retweet"):
-                retweet = w["retweet"]
-                if retweet.get("pics"):
-                    self._download_weibo_images(retweet, img_dir, is_retweet=True)
+            # 下载图片
+            for w in self.weibo[wrote_count:]:
+                # 处理原创微博图片
+                if w.get("pics"):
+                    self._download_weibo_images(w, img_dir, is_retweet=False)
+
+                # 处理转发微博图片
+                if not self.only_crawl_original and w.get("retweet"):
+                    retweet = w["retweet"]
+                    if retweet.get("pics"):
+                        self._download_weibo_images(retweet, img_dir, is_retweet=True)
 
     def _download_weibo_images(self, weibo, img_dir, is_retweet=False):
         """下载单条微博的图片"""
@@ -2720,13 +2807,27 @@ class Weibo(object):
             # 下载图片
             self.download_one_file(pic_url, img_path, "img", weibo["id"], created_at)
 
-    def generate_markdown_file(self, date, weibo_list):
-        """生成单个日期的markdown文件（增量模式）"""
+    def generate_markdown_file(self, group_key, weibo_list):
+        """生成单个markdown文件（增量模式）"""
         # 获取用户目录
         file_dir = self.get_filepath("markdown")
 
         # 创建markdown文件路径
-        md_file_path = os.path.join(file_dir, f"{date}.md")
+        if self.markdown_split_by == "all":
+             md_file_path = os.path.join(file_dir, f"{self.user.get('screen_name', 'weibo')}.md")
+             title_date = "全量"
+        elif self.markdown_split_by == "day_by_month":
+             # 按天分割，但按月归档到子文件夹
+             # group_key 格式为 YYYY-MM-DD
+             month_folder = group_key[:7]  # 提取 YYYY-MM
+             month_dir = os.path.join(file_dir, month_folder)
+             if not os.path.isdir(month_dir):
+                 os.makedirs(month_dir)
+             md_file_path = os.path.join(month_dir, f"{group_key}.md")
+             title_date = group_key
+        else:
+             md_file_path = os.path.join(file_dir, f"{group_key}.md")
+             title_date = group_key
 
         # 获取用户名
         username = self.user.get("screen_name", "未知用户")
@@ -2757,7 +2858,7 @@ class Weibo(object):
 
         # 如果没有新微博，直接返回
         if not new_weibo_list:
-            logger.info(f"日期 {date} 没有新微博需要写入")
+            logger.info(f"分组 {group_key} 没有新微博需要写入")
             return
 
         # 构建新微博的markdown内容
@@ -2772,13 +2873,21 @@ class Weibo(object):
                 time_obj = datetime.strptime(created_at, DTFORMAT)
                 time_str = time_obj.strftime("%H:%M:%S")
                 date_str = time_obj.strftime("%Y-%m-%d")
+                # 根据分组方式决定标题格式
+                if self.markdown_split_by in ["day", "day_by_month"]:
+                    # 按天分组时，日期已在文件名中，只显示时间
+                    heading_time = time_str
+                else:
+                    # 按月/年/全量分组时，显示完整日期时间
+                    heading_time = f"{date_str} {time_str}"
             except ValueError:
                 time_str = "00:00:00"
-                date_str = date
+                date_str = created_at # fallback
+                heading_time = created_at
 
             # 添加时间标题和微博ID（用于增量模式去重）
             weibo_id = w.get("id", "")
-            new_md_content += f"### {time_str}\n<!-- weibo_id: {weibo_id} -->\n"
+            new_md_content += f"### {heading_time}\n<!-- weibo_id: {weibo_id} -->\n"
 
             # 处理转发微博
             if not self.only_crawl_original and w.get("retweet"):
@@ -2793,10 +2902,10 @@ class Weibo(object):
                 if retweet_text:
                     new_md_content += f"> 转发: {retweet_text}\n\n"
 
-                # 转发微博图片
+                # 转发微博图片（图片保存在父微博的月份文件夹中）
                 if retweet.get("pics"):
                     pics = retweet["pics"].split(",")
-                    # 使用转发微博的时间
+                    # 使用转发微博的时间作为文件名
                     retweet_created_at = retweet.get("created_at", created_at)
                     try:
                         retweet_time_obj = datetime.strptime(retweet_created_at, DTFORMAT)
@@ -2842,7 +2951,7 @@ class Weibo(object):
                 final_content = existing_content.rstrip() + "\n\n" + new_md_content
             else:
                 # 创建新文件，添加标题
-                final_content = f"## {date} [{username}] 微博存档\n\n" + new_md_content
+                final_content = f"## {title_date} [{username}] 微博存档\n\n" + new_md_content
 
             with open(md_file_path, "w", encoding="utf-8") as f:
                 f.write(final_content)

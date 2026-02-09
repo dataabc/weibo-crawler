@@ -9,6 +9,7 @@
         "csv",
         "json"
     ], // 输出格式（可多选），可选项：csv, json, mysql, mongo, sqlite, post, markdown，示例：["markdown"] 或 ["markdown", "csv", "json"]
+    "markdown_split_by": "day_by_month", // markdown文件分割方式，可选项：day（按天，平铺），day_by_month（按天，按月归档到子文件夹），month（按月），year（按年），all（所有数据在一个文件）
     "original_pic_download": 1, // 是否下载原创微博图片 0 = 不下载，1 = 下载
     "retweet_pic_download": 1, // 是否下载转发微博图片 0 = 不下载，1 = 下载
     "original_video_download": 1, // 是否下载原创微博视频 0 = 不下载，1 = 下载
@@ -51,7 +52,7 @@
         "request_delay_max": 15, // 请求延迟最大值（秒）
         "max_session_time": 600, // 最大单次运行时间（秒），达到此时间后强制休息
         "max_api_errors": 5, // 最大API错误次数，达到此次数后强制休息
-        "rest_time_min": 600, // 休息时间最小值（秒），触发休息条件后暂停的时间
+        "rest_time_min": 180, // 休息时间最小值（秒），触发休息条件后暂停的时间
         "random_rest_probability": 0.01, // 每次休息后，随机触发额外休息的概率
         "user_agents": [
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
