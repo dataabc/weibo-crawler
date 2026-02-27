@@ -883,10 +883,20 @@ class Weibo(object):
         """获取微博原始图片url"""
         if weibo_info.get("pics"):
             pic_info = weibo_info["pics"]
-            pic_list = [
-                pic['large']['url'] for pic in pic_info
-                if isinstance(pic, dict) and pic.get('large')
-            ]
+            pic_list = []
+            for pic in pic_info:
+                if not isinstance(pic, dict) or not pic.get('large'):
+                    continue
+                # 跳过视频类型（多视频微博中视频以 type=video 存在 pics 中）
+                if pic.get('type') == 'video':
+                    continue
+                url = pic['large']['url']
+                # 将 URL 中的非原图尺寸标识替换为 large，确保获取原图
+                url = re.sub(
+                    r'/(mw\d+|bmiddle|thumb\d+|orj\d+|woriginal)/',
+                    '/large/', url
+                )
+                pic_list.append(url)
             pics = ",".join(pic_list)
         else:
             pics = ""
@@ -897,21 +907,34 @@ class Weibo(object):
         """获取Live Photo视频URL"""
         live_photo_list = weibo_info.get("live_photo", [])
         return ";".join(live_photo_list) if live_photo_list else ""
+
     def get_video_url(self, weibo_info):
         """获取微博普通视频URL"""
-        video_url = ""
-        if weibo_info.get("page_info"):
+        video_urls = []
+        # 1. 从 pics 中提取多视频（多视频微博中视频以 type=video 存在 pics 中，
+        #    视频URL在 videoSrc 字段）
+        if weibo_info.get("pics"):
+            for pic in weibo_info["pics"]:
+                if (isinstance(pic, dict) and pic.get("type") == "video"
+                        and pic.get("videoSrc")):
+                    video_urls.append(pic["videoSrc"])
+        # 2. 如果 pics 中没有视频，回退到 page_info（单视频兼容）
+        if not video_urls and weibo_info.get("page_info"):
             if weibo_info["page_info"].get("type") == "video":
-                media_info = weibo_info["page_info"].get("urls") or weibo_info["page_info"].get("media_info")
+                media_info = (weibo_info["page_info"].get("urls")
+                             or weibo_info["page_info"].get("media_info"))
                 if media_info:
-                    video_url = (media_info.get("mp4_720p_mp4") or
-                                media_info.get("mp4_hd_url") or
-                                media_info.get("hevc_mp4_hd") or
-                                media_info.get("mp4_sd_url") or
-                                media_info.get("mp4_ld_mp4") or
-                                media_info.get("stream_url_hd") or
-                                media_info.get("stream_url"))
-        return video_url
+                    url = (media_info.get("mp4_720p_mp4") or
+                           media_info.get("mp4_hd_mp4") or
+                           media_info.get("mp4_hd_url") or
+                           media_info.get("hevc_mp4_hd") or
+                           media_info.get("mp4_sd_url") or
+                           media_info.get("mp4_ld_mp4") or
+                           media_info.get("stream_url_hd") or
+                           media_info.get("stream_url"))
+                    if url:
+                        video_urls.append(url)
+        return ";".join(video_urls)
 
     def write_exif_time(self, file_path, time_str):
         if self.write_time_in_exif:
@@ -953,20 +976,46 @@ class Weibo(object):
                 return 
 
             s = requests.Session()
-            s.mount('http://', HTTPAdapter(max_retries=5))
-            s.mount('https://', HTTPAdapter(max_retries=5))
+            s.mount('http://', HTTPAdapter(max_retries=2))
+            s.mount('https://', HTTPAdapter(max_retries=2))
             try_count = 0
             success = False
             MAX_TRY_COUNT = 3
             detected_extension = None
+            # 连续无数据超时时间（秒）：超过此时间没收到任何数据则判定为卡住
+            stall_timeout = 60
             while try_count < MAX_TRY_COUNT:
                 try:
+                    # 使用流式下载，避免大文件一次性加载导致卡住
                     response = s.get(
-                        url, headers=self.headers, timeout=(5, 10), verify=False
+                        url, headers=self.headers, timeout=(5, 30),
+                        verify=False, stream=True
                     )
                     response.raise_for_status()
-                    downloaded = response.content
+
+                    # 流式读取数据，带无数据超时控制
+                    # 只要持续收到数据就继续下载，仅在连续 stall_timeout 秒无数据时中断
+                    chunks = []
+                    last_data_time = time.time()
+                    for chunk in response.iter_content(chunk_size=1024 * 64):
+                        if chunk:
+                            chunks.append(chunk)
+                            last_data_time = time.time()  # 收到数据，重置计时
+                        # 检查是否长时间无数据
+                        if time.time() - last_data_time > stall_timeout:
+                            logger.warning(
+                                f"下载停滞({stall_timeout}s无数据)，跳过: {url[:80]}..."
+                            )
+                            raise RequestException(
+                                f"下载停滞：连续 {stall_timeout} 秒未收到数据"
+                            )
+                    downloaded = b''.join(chunks)
                     try_count += 1
+
+                    # 检查下载内容是否为空
+                    if not downloaded:
+                        logger.warning(f"下载内容为空: {url[:80]}... ({try_count}/{MAX_TRY_COUNT})")
+                        continue
 
                     # 获取文件后缀
                     url_path = url.split('?')[0]  # 去除URL中的参数
@@ -1132,6 +1181,9 @@ class Weibo(object):
                     file_name = file_prefix + "_" + str(i + 1) + file_suffix
                     file_path = file_dir + os.sep + file_name
                     self.download_one_file(url, file_path, file_type, w["id"], w["created_at"])
+                    # 视频下载间隔延迟，减少触发CDN限流
+                    if i < len(url_list) - 1:
+                        sleep(random.uniform(1, 3))
             else:
                 if urls.endswith(".mov"):
                     file_suffix = ".mov"
