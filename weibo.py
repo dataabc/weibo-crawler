@@ -69,6 +69,20 @@ class Weibo(object):
             logger.error("since_date 格式不正确，请确认配置是否正确")
             sys.exit()
         self.since_date = since_date  # 起始时间，即爬取发布日期从该值到现在的微博，形式为yyyy-mm-ddThh:mm:ss，如：2023-08-21T09:23:03
+        end_date = config.get("end_date", "")
+        # end_date 为空字符串时不限制截止时间
+        if end_date:
+            if isinstance(end_date, int):
+                end_date = date.today() - timedelta(end_date)
+                end_date = end_date.strftime(DTFORMAT)
+            elif self.is_date(end_date):
+                end_date = "{}T23:59:59".format(end_date)
+            elif self.is_datetime(end_date):
+                pass
+            else:
+                logger.error("end_date 格式不正确，请确认配置是否正确")
+                sys.exit()
+        self.end_date = end_date  # 截止时间，为空则不限制
         self.start_page = config.get("start_page", 1)  # 开始爬的页，如果中途被限制而结束可以用此定义开始页码
         self.write_mode = config[
             "write_mode"
@@ -202,6 +216,7 @@ class Weibo(object):
                 {
                     "user_id": user_id,
                     "since_date": self.since_date,
+                    "end_date": self.end_date,
                     "query_list": query_list,
                 }
                 for user_id in user_id_list
@@ -478,6 +493,13 @@ class Weibo(object):
         if (not isinstance(since_date, int)) and (not self.is_datetime(since_date)) and (not self.is_date(since_date)):
             logger.warning("since_date值应为yyyy-mm-dd形式、yyyy-mm-ddTHH:MM:SS形式或整数，请重新输入")
             sys.exit()
+
+        # 验证end_date
+        end_date = config.get("end_date", "")
+        if end_date:
+            if (not isinstance(end_date, int)) and (not self.is_datetime(end_date)) and (not self.is_date(end_date)):
+                logger.warning("end_date值应为yyyy-mm-dd形式、yyyy-mm-ddTHH:MM:SS形式或整数，请重新输入")
+                sys.exit()
 
         comment_max_count = config["comment_max_download_count"]
         if not isinstance(comment_max_count, int):
@@ -1776,6 +1798,19 @@ class Weibo(object):
                             since_date = datetime.strptime(
                                 self.user_config["since_date"], DTFORMAT
                             )
+                            # end_date 过滤：微博按从新到旧排列，晚于截止时间的跳过继续
+                            if self.user_config.get("end_date"):
+                                end_date = datetime.strptime(
+                                    self.user_config["end_date"], DTFORMAT
+                                )
+                                if created_at > end_date:
+                                    # 检查是否为置顶微博
+                                    is_pinned = w.get("mblog", {}).get("mblogtype", 0) == 2
+                                    if is_pinned:
+                                        logger.debug(f"[置顶微博] 微博ID={wb['id']}, 发布时间={created_at}, 是置顶微博，跳过但继续检查后续微博")
+                                    else:
+                                        logger.debug(f"[截止日期过滤] 微博ID={wb['id']}, 发布时间={created_at}, 截止时间={end_date}, 已跳过")
+                                    continue
                             if const.MODE == "append":
                                 # append模式：增量获取微博
                                 if self.first_crawler:
@@ -1820,7 +1855,7 @@ class Weibo(object):
                                     logger.debug(f"[置顶微博] 微博ID={wb['id']}, 发布时间={created_at}, 是置顶微博，跳过但继续检查后续微博")
                                     continue
                                 
-                                logger.debug(f"[日期过滤] 微博ID={wb['id']}, 发布时间={created_at}, 起始时间={since_date}, 被跳过")
+                                logger.debug(f"[日期过滤] 微博ID={wb['id']}, 发布时间={created_at}, 起始时间={since_date}, 已跳过")
                                 # 如果要检查还没有检查cookie，不能直接跳出
                                 if const.CHECK_COOKIE["CHECK"] and (
                                     not const.CHECK_COOKIE["CHECKED"]
@@ -3166,6 +3201,8 @@ class Weibo(object):
                     else:
                         user_config["since_date"] = self.since_date
                         logger.info(f"用户 {user_config['user_id']} 使用配置文件的起始时间: {user_config['since_date']}")
+                    # end_date 统一使用全局配置
+                    user_config["end_date"] = self.end_date
                     # 若超过3个字段，则第四个字段为 query_list                    
                     if len(info) > 3:
                         user_config["query_list"] = info[3].split(",")
