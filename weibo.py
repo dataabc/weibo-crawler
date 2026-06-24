@@ -2010,15 +2010,9 @@ class Weibo(object):
                                 self.weibo_id_list.append(wb["id"])
                                 self.got_count += 1
 
-                                # 防封禁：更新微博统计
+                                # 防封禁：累计统计
+                                # 暂停判断挪到整页处理完后进行，避免在页处理中途退出导致当前页剩余微博被跳过而丢失
                                 self.update_crawl_stats(weibo_count=1)
-
-                                # 防封禁：检查是否需要暂停
-                                if self.anti_ban_enabled:
-                                    should_pause, reason = self.should_pause_session()
-                                    if should_pause:
-                                        logger.warning(f"触发防封禁暂停: {reason}")
-                                        return "need_rest"  # 返回特殊值表示需要休息
 
                                 # 这里是系统日志输出，尽量别太杂
                                 logger.info(
@@ -2030,6 +2024,14 @@ class Weibo(object):
                             else:
                                 logger.info("正在过滤转发微博")
                     
+                # 防封禁：当前页全部微博处理完毕后再判断是否需要休息，
+                # 避免页处理中途退出,当前页剩余微博被永久跳过。
+                if self.anti_ban_enabled:
+                    should_pause, reason = self.should_pause_session()
+                    if should_pause:
+                        logger.warning(f"触发防封禁暂停: {reason}")
+                        return "need_rest"
+
                 if const.CHECK_COOKIE["CHECK"] and not const.CHECK_COOKIE["CHECKED"]:
                     logger.warning("经检查，cookie无效，系统退出")
                     if const.NOTIFY["NOTIFY"]:
