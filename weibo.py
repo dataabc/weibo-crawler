@@ -1259,9 +1259,22 @@ class Weibo(object):
         self.sqlite_insert(con, file_data, "bins")
         con.close()
 
+    def _get_timestamp_prefix(self, created_at):
+        """根据微博发布时间生成人类可读的文件名前缀
+        格式：YYYY-MM-DD_HH-MM-SS，与 _download_weibo_images 保持一致
+        """
+        try:
+            time_obj = datetime.strptime(created_at, DTFORMAT)
+            date_str = time_obj.strftime("%Y-%m-%d")
+            time_str = time_obj.strftime("%H:%M:%S")
+            return f"{date_str}_{time_str.replace(':', '-')}"
+        except (ValueError, KeyError):
+            # 回退：使用旧的截断格式
+            return created_at[:11].replace("-", "") + "_" + str(w["id"])
+
     def handle_download(self, file_type, file_dir, urls, w):
         """处理下载相关操作"""
-        file_prefix = w["created_at"][:11].replace("-", "") + "_" + str(w["id"])
+        file_prefix = self._get_timestamp_prefix(w["created_at"])
         if file_type == "img":
             if "," in urls:
                 url_list = urls.split(",")
@@ -1308,7 +1321,7 @@ class Weibo(object):
         if not urls:
             return []
 
-        file_prefix = w["created_at"][:11].replace("-", "") + "_" + str(w["id"])
+        file_prefix = self._get_timestamp_prefix(w["created_at"])
         file_names = []
 
         if file_type == "img":
