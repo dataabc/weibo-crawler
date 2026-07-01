@@ -1016,9 +1016,37 @@ class Weibo(object):
 
 
     def get_live_photo_url(self, weibo_info):
-        """获取Live Photo视频URL"""
-        live_photo_list = weibo_info.get("live_photo", [])
-        return ";".join(live_photo_list) if live_photo_list else ""
+        """获取Live Photo视频URL及其在过滤后pics数组中的位置索引
+
+        从 pics 数组中提取 type='livephoto' 的 videoSrc 字段，
+        并使用与 get_pics() 相同的过滤逻辑，使 live_photo 的文件名索引
+        与对应的 still image 文件名索引保持一致。
+
+        返回 dict: {"url": 分号分隔的URL字符串, "indices": [1-based位置列表]}
+        """
+        pic_info = weibo_info.get("pics") or []
+        urls = []
+        indices = []
+
+        if pic_info:
+            filtered_pos = 0  # 在过滤后的 pics 列表中的 1-based 位置
+            for pic in pic_info:
+                # 与 get_pics() 保持完全一致的过滤逻辑
+                if not isinstance(pic, dict) or not pic.get('large'):
+                    continue
+                if pic.get('type') == 'video':
+                    continue
+                filtered_pos += 1
+
+                # 检查该 pic 是否是 livephoto 类型并有 videoSrc
+                if pic.get('type') == 'livephoto' and pic.get('videoSrc'):
+                    urls.append(pic['videoSrc'])
+                    indices.append(filtered_pos)
+
+        return {
+            "url": ";".join(urls) if urls else "",
+            "indices": indices  # 1-based 位置列表
+        }
 
     def get_video_url(self, weibo_info):
         """获取微博普通视频URL"""
@@ -1259,9 +1287,22 @@ class Weibo(object):
         self.sqlite_insert(con, file_data, "bins")
         con.close()
 
+    def _get_timestamp_prefix(self, created_at):
+        """根据微博发布时间生成人类可读的文件名前缀
+        格式：YYYY-MM-DD_HH-MM-SS，与 _download_weibo_images 保持一致
+        """
+        try:
+            time_obj = datetime.strptime(created_at, DTFORMAT)
+            date_str = time_obj.strftime("%Y-%m-%d")
+            time_str = time_obj.strftime("%H:%M:%S")
+            return f"{date_str}_{time_str.replace(':', '-')}"
+        except (ValueError, KeyError):
+            # 回退：使用旧的截断格式
+            return created_at[:11].replace("-", "") + "_" + str(w["id"])
+
     def handle_download(self, file_type, file_dir, urls, w):
         """处理下载相关操作"""
-        file_prefix = w["created_at"][:11].replace("-", "") + "_" + str(w["id"])
+        file_prefix = self._get_timestamp_prefix(w["created_at"])
         if file_type == "img":
             if "," in urls:
                 url_list = urls.split(",")
@@ -1283,7 +1324,7 @@ class Weibo(object):
                 file_name = file_prefix + file_suffix
                 file_path = file_dir + os.sep + file_name
                 self.download_one_file(urls, file_path, file_type, w["id"], w["created_at"])
-        elif file_type == "video" or file_type == "live_photo":
+        elif file_type == "video":
             file_suffix = ".mp4"
             if ";" in urls:
                 url_list = urls.split(";")
@@ -1302,13 +1343,38 @@ class Weibo(object):
                 file_name = file_prefix + file_suffix
                 file_path = file_dir + os.sep + file_name
                 self.download_one_file(urls, file_path, file_type, w["id"], w["created_at"])
+        elif file_type == "live_photo":
+            # 使用 live_photo_indices 使 live_photo 文件名与对应图片文件名一致
+            indices = w.get("live_photo_indices", [])
+            if ";" in urls:
+                url_list = urls.split(";")
+                for j, url in enumerate(url_list):
+                    file_suffix = ".mov" if url.endswith(".mov") else ".mp4"
+                    # 使用 indices 中的对应索引，若缺失则回退到 j+1
+                    idx = indices[j] if j < len(indices) else (j + 1)
+                    file_name = file_prefix + "_" + str(idx) + file_suffix
+                    file_path = file_dir + os.sep + file_name
+                    self.download_one_file(url, file_path, file_type, w["id"], w["created_at"])
+                    if j < len(url_list) - 1:
+                        sleep(random.uniform(1, 3))
+            else:
+                file_suffix = ".mov" if urls.endswith(".mov") else ".mp4"
+                idx = indices[0] if indices else 1
+                # 与图片命名保持一致：多张图片时加序号，单张图片不加序号
+                pics_count = len([p for p in (w.get("pics", "").split(",")) if p]) if w.get("pics") else 0
+                if pics_count > 1:
+                    file_name = file_prefix + "_" + str(idx) + file_suffix
+                else:
+                    file_name = file_prefix + file_suffix
+                file_path = file_dir + os.sep + file_name
+                self.download_one_file(urls, file_path, file_type, w["id"], w["created_at"])
 
     def get_download_file_names(self, file_type, urls, w):
         """根据下载规则推导本地文件名，供 Markdown 链接使用"""
         if not urls:
             return []
 
-        file_prefix = w["created_at"][:11].replace("-", "") + "_" + str(w["id"])
+        file_prefix = self._get_timestamp_prefix(w["created_at"])
         file_names = []
 
         if file_type == "img":
@@ -1326,7 +1392,7 @@ class Weibo(object):
                 else:
                     file_name = file_prefix + file_suffix
                 file_names.append(file_name)
-        elif file_type == "video" or file_type == "live_photo":
+        elif file_type == "video":
             url_list = urls.split(";") if ";" in urls else [urls]
             for i, url in enumerate(url_list):
                 if not url:
@@ -1334,6 +1400,22 @@ class Weibo(object):
                 file_suffix = ".mov" if url.endswith(".mov") else ".mp4"
                 if len(url_list) > 1:
                     file_name = file_prefix + "_" + str(i + 1) + file_suffix
+                else:
+                    file_name = file_prefix + file_suffix
+                file_names.append(file_name)
+        elif file_type == "live_photo":
+            indices = w.get("live_photo_indices", [])
+            url_list = urls.split(";") if ";" in urls else [urls]
+            for j, url in enumerate(url_list):
+                if not url:
+                    continue
+                file_suffix = ".mov" if url.endswith(".mov") else ".mp4"
+                # 使用 indices 中的对应索引
+                idx = indices[j] if j < len(indices) else (j + 1)
+                # 单张图片时不加序号，但仍有多个pics时需加序号以匹配对应图片
+                pics_count = len([p for p in (w.get("pics", "").split(",")) if p]) if w.get("pics") else 0
+                if pics_count > 1:
+                    file_name = file_prefix + "_" + str(idx) + file_suffix
                 else:
                     file_name = file_prefix + file_suffix
                 file_names.append(file_name)
@@ -1560,7 +1642,9 @@ class Weibo(object):
         weibo["article_url"] = self.get_article_url(selector)
         weibo["pics"] = self.get_pics(weibo_info)
         weibo["video_url"] = self.get_video_url(weibo_info)  # 普通视频URL
-        weibo["live_photo_url"] = self.get_live_photo_url(weibo_info)  # Live Photo视频URL
+        live_photo_data = self.get_live_photo_url(weibo_info)
+        weibo["live_photo_url"] = live_photo_data["url"]  # Live Photo视频URL
+        weibo["live_photo_indices"] = live_photo_data["indices"]  # Live Photo在过滤后pics中的1-based索引
         weibo["links"] = self.get_link_urls(selector)
         weibo["location"] = self.get_location(selector)
         weibo["created_at"] = weibo_info["created_at"]
@@ -2076,7 +2160,7 @@ class Weibo(object):
         for w in self.weibo[wrote_count:]:
             wb = OrderedDict()
             for k, v in w.items():
-                if k not in ["user_id", "screen_name", "retweet"]:
+                if k not in ["user_id", "screen_name", "retweet", "live_photo_indices"]:
                     if k == "links":
                         continue
                     if "unicode" in str(type(v)):
@@ -2088,7 +2172,7 @@ class Weibo(object):
                 if w.get("retweet"):
                     wb["is_original"] = False
                     for k2, v2 in w["retweet"].items():
-                        if k2 == "links":
+                        if k2 == "links" or k2 == "live_photo_indices":
                             continue
                         if "unicode" in str(type(v2)):
                             v2 = v2.encode("utf-8")
