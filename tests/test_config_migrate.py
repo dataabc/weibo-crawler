@@ -1,0 +1,563 @@
+"""util.config_migrate 的单元测试。
+
+直接运行：python3 test_config_migrate.py
+"""
+
+import copy
+import json
+import os
+import stat
+import tempfile
+import unittest
+from datetime import datetime
+from unittest.mock import patch
+
+from util.config_migrate import (
+    DEFAULT_RENAME_MAP,
+    MigrationResult,
+    format_summary,
+    load_config_file,
+    merge_config_text,
+    migrate_config,
+    write_config_text_with_backup,
+    write_config_with_backup,
+)
+
+
+class MigrateConfigTest(unittest.TestCase):
+    """配置合并、改名和结果记录测试。"""
+
+    def test_missing_top_level_keys_are_filled_without_overwriting(self):
+        """缺顶层键时补齐，用户已有值优先。"""
+        template = {
+            "only_crawl_original": 0,
+            "user_id_list": ["template-user"],
+            "since_date": "2026-01-01",
+            "write_mode": ["markdown"],
+        }
+        user = {
+            "only_crawl_original": 1,
+            "user_id_list": ["user-123"],
+        }
+
+        result = migrate_config(user, template)
+
+        self.assertEqual(result.added_keys, ["since_date", "write_mode"])
+        self.assertEqual(result.merged["only_crawl_original"], 1)
+        self.assertEqual(result.merged["user_id_list"], ["user-123"])
+        self.assertEqual(result.merged["since_date"], "2026-01-01")
+        self.assertEqual(result.merged["write_mode"], ["markdown"])
+        self.assertEqual(
+            list(result.merged),
+            ["only_crawl_original", "user_id_list", "since_date", "write_mode"],
+        )
+        self.assertEqual(result.unknown_keys, [])
+
+    def test_missing_nested_keys_are_filled_recursively(self):
+        """缺嵌套键时递归补齐；整块缺失只记父路径。"""
+        template = {
+            "markdown_preview": {
+                "link_preview": 0,
+                "inline_image_preview": 1,
+            },
+            "markdown_file_dir": {
+                "original_image_dir": "img",
+            },
+        }
+        user = {
+            "markdown_preview": {
+                "link_preview": 1,
+            },
+        }
+
+        result = migrate_config(user, template)
+
+        self.assertEqual(
+            result.added_keys,
+            [
+                "markdown_preview.inline_image_preview",
+                "markdown_file_dir",
+            ],
+        )
+        self.assertEqual(result.merged["markdown_preview"]["link_preview"], 1)
+        self.assertEqual(
+            result.merged["markdown_preview"]["inline_image_preview"], 1
+        )
+        self.assertEqual(
+            result.merged["markdown_file_dir"]["original_image_dir"], "img"
+        )
+
+    def test_legacy_keys_are_renamed(self):
+        """filter/result_dir_name 正确改名。"""
+        template = {
+            "only_crawl_original": 0,
+            "user_id_as_folder_name": 0,
+        }
+        user = {
+            "filter": 1,
+            "result_dir_name": 1,
+        }
+
+        result = migrate_config(user, template, DEFAULT_RENAME_MAP)
+
+        self.assertEqual(
+            result.renamed_keys,
+            [
+                ("filter", "only_crawl_original"),
+                ("result_dir_name", "user_id_as_folder_name"),
+            ],
+        )
+        self.assertNotIn("filter", result.merged)
+        self.assertNotIn("result_dir_name", result.merged)
+        self.assertEqual(result.merged["only_crawl_original"], 1)
+        self.assertEqual(result.merged["user_id_as_folder_name"], 1)
+        self.assertEqual(result.added_keys, [])
+
+    def test_archive_check_keys_migrated(self):
+        """旧检查报告键与上一版功能键都迁移到 weibo_archive_check。"""
+        template = {"weibo_archive_check": 0, "invisible_weibo_dirs": ["已不可见"]}
+        for old_key in ("missing_weibo_report", "weibo_delete_save_check"):
+            with self.subTest(old_key=old_key):
+                result = migrate_config({old_key: 1}, template, DEFAULT_RENAME_MAP)
+                self.assertEqual(result.merged["weibo_archive_check"], 1)
+                self.assertNotIn(old_key, result.merged)
+
+    def test_existing_new_key_wins_and_old_key_is_removed(self):
+        """新旧键同时存在时保留新键，旧键不重复、不残留。"""
+        template = {"only_crawl_original": 0}
+        user = {
+            "filter": 0,
+            "only_crawl_original": 1,
+        }
+
+        result = migrate_config(user, template, DEFAULT_RENAME_MAP)
+
+        self.assertEqual(result.merged, {"only_crawl_original": 1})
+        self.assertNotIn("filter", result.merged)
+        self.assertEqual(result.renamed_keys, [])
+        self.assertEqual(result.added_keys, [])
+        self.assertEqual(result.unknown_keys, [])
+
+    def test_unknown_keys_are_preserved_at_the_end(self):
+        """未知顶层键保留，并追加在模板键之后。"""
+        template = {
+            "only_crawl_original": 0,
+            "user_id_list": [],
+        }
+        user = {
+            "only_crawl_original": 1,
+            "user_id_list": [],
+            "legacy_note": {"text": "保留"},
+            "extra": True,
+        }
+
+        result = migrate_config(user, template)
+
+        self.assertEqual(result.unknown_keys, ["legacy_note", "extra"])
+        self.assertEqual(
+            list(result.merged),
+            ["only_crawl_original", "user_id_list", "legacy_note", "extra"],
+        )
+        self.assertEqual(result.merged["legacy_note"], {"text": "保留"})
+        self.assertTrue(result.merged["extra"])
+
+    def test_inputs_are_not_modified_and_result_is_detached(self):
+        """迁移不修改入参，返回的新对象也不与入参共享容器。"""
+        template = {
+            "write_mode": ["markdown"],
+            "markdown_preview": {
+                "link_preview": 0,
+                "inline_image_preview": 1,
+            },
+        }
+        user = {
+            "write_mode": ["csv"],
+            "markdown_preview": {
+                "link_preview": 1,
+            },
+        }
+        template_before = copy.deepcopy(template)
+        user_before = copy.deepcopy(user)
+
+        result = migrate_config(user, template)
+
+        self.assertEqual(user, user_before)
+        self.assertEqual(template, template_before)
+        self.assertIsNot(result.merged, user)
+        self.assertIsNot(result.merged["markdown_preview"], user["markdown_preview"])
+
+        # 修改结果不能反向污染用户配置或模板。
+        result.merged["write_mode"].append("json")
+        result.merged["markdown_preview"]["inline_image_preview"] = 0
+        self.assertEqual(user, user_before)
+        self.assertEqual(template, template_before)
+
+
+class ConfigFileTest(unittest.TestCase):
+    """配置文件读写与备份测试。"""
+
+    def test_load_config_file_supports_json5_comments(self):
+        """能解析带行注释、块注释和尾随逗号的 JSON5。"""
+        content = """{
+            // 行注释
+            "user_id_list": ["123"],
+            "api_url": "https://example.com/a//b",
+            "note": "字符串里的 /* 不是注释 */",
+            "enabled": true,
+            "items": [1, 2,],
+            /* 块注释 */
+        }
+        """
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, "config.json")
+            with open(path, "w", encoding="utf-8") as config_file:
+                config_file.write(content)
+
+            config = load_config_file(path)
+
+        self.assertEqual(config["user_id_list"], ["123"])
+        self.assertEqual(config["api_url"], "https://example.com/a//b")
+        self.assertEqual(config["note"], "字符串里的 /* 不是注释 */")
+        self.assertTrue(config["enabled"])
+        self.assertEqual(config["items"], [1, 2])
+
+    def test_load_config_file_errors_include_path(self):
+        """文件缺失、解析失败或根节点不是对象时均报 ValueError 且带路径。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            missing_path = os.path.join(temp_dir, "missing.json")
+            with self.assertRaises(ValueError) as missing_context:
+                load_config_file(missing_path)
+            self.assertIn(missing_path, str(missing_context.exception))
+
+            bad_path = os.path.join(temp_dir, "bad.json")
+            with open(bad_path, "w", encoding="utf-8") as config_file:
+                config_file.write("{ this is not json }")
+            with self.assertRaises(ValueError) as bad_context:
+                load_config_file(bad_path)
+            self.assertIn(bad_path, str(bad_context.exception))
+
+            array_path = os.path.join(temp_dir, "array.json")
+            with open(array_path, "w", encoding="utf-8") as config_file:
+                config_file.write("[1, 2, 3]")
+            with self.assertRaises(ValueError) as array_context:
+                load_config_file(array_path)
+            self.assertIn(array_path, str(array_context.exception))
+
+    def test_write_config_with_backup_and_reload(self):
+        """生成备份、保留原内容、写回可再次读取的规范化 JSON。"""
+        original_text = """{
+    "filter": 1,
+    // 用户自己的注释
+    "custom": "保留"
+}
+"""
+        template = {
+            "only_crawl_original": 0,
+            "user_id_as_folder_name": 0,
+            "since_date": "2026-01-01",
+        }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, "config.json")
+            with open(path, "w", encoding="utf-8") as config_file:
+                config_file.write(original_text)
+            os.chmod(path, 0o640)
+
+            user_config = load_config_file(path)
+            result = migrate_config(user_config, template, DEFAULT_RENAME_MAP)
+            backup_path = write_config_with_backup(path, result.merged)
+
+            self.assertTrue(os.path.isfile(backup_path))
+            self.assertEqual(os.path.dirname(backup_path), temp_dir)
+            self.assertTrue(
+                os.path.basename(backup_path).startswith("config.json.bak.")
+            )
+
+            with open(backup_path, "r", encoding="utf-8") as backup_file:
+                self.assertEqual(backup_file.read(), original_text)
+
+            reloaded = load_config_file(path)
+            self.assertEqual(reloaded, result.merged)
+            self.assertEqual(reloaded["only_crawl_original"], 1)
+            self.assertEqual(reloaded["custom"], "保留")
+
+            with open(path, "r", encoding="utf-8") as config_file:
+                written_text = config_file.read()
+            self.assertEqual(json.loads(written_text), result.merged)
+            self.assertTrue(written_text.endswith("\n"))
+            self.assertNotIn("//", written_text)
+            self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o640)
+
+    def test_backup_name_collision_adds_sequence(self):
+        """同一时间戳的备份已存在时，追加序号避免覆盖。"""
+        original_text = '{"filter": 1}\n'
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = os.path.join(temp_dir, "config.json")
+            with open(path, "w", encoding="utf-8") as config_file:
+                config_file.write(original_text)
+
+            base_path = (
+                f"{path}.bak.20261024-065218"
+            )
+            with open(base_path, "w", encoding="utf-8") as backup_file:
+                backup_file.write("较早的备份")
+            with open(f"{base_path}.1", "w", encoding="utf-8") as backup_file:
+                backup_file.write("更早的备份")
+
+            class FixedDateTime:
+                @classmethod
+                def now(cls):
+                    return datetime(2026, 10, 24, 6, 52, 18)
+
+            with patch("util.config_migrate.datetime", FixedDateTime):
+                backup_path = write_config_with_backup(path, {"filter": 1})
+
+            self.assertEqual(backup_path, f"{base_path}.2")
+            with open(backup_path, "r", encoding="utf-8") as backup_file:
+                self.assertEqual(backup_file.read(), original_text)
+
+
+class PreserveFormatWriteTest(unittest.TestCase):
+    """保留注释的文本级写回测试。"""
+
+    ORIGINAL_TEXT = """{
+    "user_id_list": "user_id_list.txt", // 用户列表
+    "filter": 1, // 用户自己的旧注释
+    "since_date": "2020-01-01", // 开始日期
+    "custom": "保留我", // 用户自定义键
+    "cookie": "SUB=abc"
+}
+"""
+
+    TEMPLATE_TEXT = """{
+    "user_id_list": "user_id_list.txt", // 用户ID列表文件
+    "only_crawl_original": 0, // 是否只爬取原创微博
+    "since_date": "2026-01-01", // 开始爬取的时间范围
+    "weibo_archive_check": 0, // 每次爬取结束后核对
+    "invisible_weibo_dirs": ["已不可见"], // 已确认不可见的微博所在目录
+    "custom": "", // 自定义
+    "cookie": "YOUR_WEIBO_COOKIE_HERE"
+}
+"""
+
+    def _prepare(self, temp_dir, original_text=None):
+        """写入模板与用户配置，返回（配置路径, 模板路径, 迁移结果）。"""
+        template_path = os.path.join(temp_dir, "config.json.example")
+        config_path = os.path.join(temp_dir, "config.json")
+        with open(template_path, "w", encoding="utf-8") as template_file:
+            template_file.write(self.TEMPLATE_TEXT)
+        with open(config_path, "w", encoding="utf-8") as config_file:
+            config_file.write(
+                self.ORIGINAL_TEXT if original_text is None else original_text
+            )
+        result = migrate_config(
+            load_config_file(config_path),
+            load_config_file(template_path),
+            DEFAULT_RENAME_MAP,
+        )
+        return config_path, template_path, result
+
+    def _write(self, config_path, template_path, result):
+        with open(config_path, "r", encoding="utf-8") as config_file:
+            original_text = config_file.read()
+        with open(template_path, "r", encoding="utf-8") as template_file:
+            template_text = template_file.read()
+        return write_config_text_with_backup(
+            config_path,
+            result,
+            original_text=original_text,
+            template_text=template_text,
+        )
+
+    def test_write_keeps_comments_and_syncs_renamed_comment(self):
+        """写回保留原注释、排版；改名键注释同步为模板注释；新增键带模板注释。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path, template_path, result = self._prepare(temp_dir)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                original_text = config_file.read()
+
+            backup_path, preserved = self._write(
+                config_path, template_path, result
+            )
+
+            self.assertTrue(preserved)
+            with open(backup_path, "r", encoding="utf-8") as backup_file:
+                self.assertEqual(backup_file.read(), original_text)
+
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                written = config_file.read()
+
+            # 用户原有注释与自定义键都保留
+            self.assertIn("// 用户列表", written)
+            self.assertIn("// 用户自定义键", written)
+            self.assertIn('"custom": "保留我"', written)
+            # 改名键的旧注释被模板中的新注释替换
+            self.assertIn(
+                '"only_crawl_original": 1, // 是否只爬取原创微博', written
+            )
+            self.assertNotIn("用户自己的旧注释", written)
+            # 新增键带模板注释，且按模板顺序相邻
+            self.assertIn(
+                '"weibo_archive_check": 0, // 每次爬取结束后核对', written
+            )
+            self.assertIn(
+                '"invisible_weibo_dirs": ["已不可见"], // 已确认不可见的微博所在目录',
+                written,
+            )
+            self.assertLess(
+                written.index("weibo_archive_check"),
+                written.index("invisible_weibo_dirs"),
+            )
+            # 内容必须与迁移结果一致
+            self.assertEqual(load_config_file(config_path), result.merged)
+
+    def test_second_write_changes_nothing(self):
+        """幂等：对已迁移的文件再执行一次，文本保持不变。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path, template_path, result = self._prepare(temp_dir)
+            self._write(config_path, template_path, result)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                first_text = config_file.read()
+
+            result_again = migrate_config(
+                load_config_file(config_path),
+                load_config_file(template_path),
+                DEFAULT_RENAME_MAP,
+            )
+            self.assertEqual(result_again.added_keys, [])
+            self.assertEqual(result_again.renamed_keys, [])
+            _, preserved = self._write(config_path, template_path, result_again)
+
+            self.assertTrue(preserved)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                self.assertEqual(config_file.read(), first_text)
+
+    def test_falls_back_for_single_line_config(self):
+        """整份配置压在一行时无法安全保留格式，回退规范化 JSON。"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path, template_path, result = self._prepare(
+                temp_dir, original_text='{"filter": 1, "custom": "保留我"}\n'
+            )
+
+            backup_path, preserved = self._write(
+                config_path, template_path, result
+            )
+
+            self.assertFalse(preserved)
+            self.assertEqual(load_config_file(config_path), result.merged)
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                self.assertEqual(json.loads(config_file.read()), result.merged)
+            with open(backup_path, "r", encoding="utf-8") as backup_file:
+                self.assertEqual(
+                    backup_file.read(), '{"filter": 1, "custom": "保留我"}\n'
+                )
+
+    def test_falls_back_for_nested_added_key(self):
+        """已存在的对象内部缺子键时暂不支持文本插入，回退规范化 JSON。"""
+        template = {"outer": {"a": 1, "b": 2}}
+        user = {"outer": {"a": 1}}
+        result = migrate_config(user, template)
+        self.assertEqual(result.added_keys, ["outer.b"])
+
+        original_text = '{\n    "outer": {\n        "a": 1\n    }\n}\n'
+        template_text = '{\n    "outer": {\n        "a": 1,\n        "b": 2\n    }\n}\n'
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_path = os.path.join(temp_dir, "config.json")
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                config_file.write(original_text)
+
+            _, preserved = write_config_text_with_backup(
+                config_path,
+                result,
+                original_text=original_text,
+                template_text=template_text,
+            )
+
+            self.assertFalse(preserved)
+            self.assertEqual(load_config_file(config_path), result.merged)
+
+    def test_merge_config_text_requires_migration_result(self):
+        """传入非 MigrationResult 时直接报类型错误。"""
+        with self.assertRaises(TypeError):
+            merge_config_text("{}", "{}", {})
+
+
+class FormatSummaryTest(unittest.TestCase):
+    """中文摘要格式测试。"""
+
+    def test_summary_for_no_changes(self):
+        """没有新增、改名或未知键时提示无需迁移。"""
+        result = MigrationResult(merged={})
+        self.assertEqual(format_summary(result), "配置已是最新，无需迁移")
+
+    def test_summary_with_all_change_types(self):
+        """所有变更类型按固定顺序输出。"""
+        result = MigrationResult(
+            merged={},
+            added_keys=["since_date", "markdown_preview.inline_image_preview"],
+            renamed_keys=[("filter", "only_crawl_original")],
+            unknown_keys=["custom"],
+        )
+
+        expected = (
+            "新增配置 2 项：since_date, markdown_preview.inline_image_preview\n"
+            "旧键改名 1 项：filter → only_crawl_original\n"
+            "未知键 1 项（已保留）：custom"
+        )
+        self.assertEqual(format_summary(result), expected)
+
+    def test_summary_with_only_unknown_keys(self):
+        """仅有未知键时也要报告，而不是说无需迁移。"""
+        result = MigrationResult(merged={}, unknown_keys=["custom"])
+        self.assertEqual(format_summary(result), "未知键 1 项（已保留）：custom")
+
+
+class RenameMapTest(unittest.TestCase):
+    """rename_map 为空时的兼容性。"""
+
+    def test_none_and_empty_rename_maps_are_safe(self):
+        """rename_map 为 None 或空字典时不报错，也不执行改名。"""
+        template = {"only_crawl_original": 0}
+        user = {"filter": 1}
+
+        for rename_map in (None, {}):
+            with self.subTest(rename_map=rename_map):
+                result = migrate_config(user, template, rename_map)
+                self.assertEqual(result.merged["filter"], 1)
+                self.assertIn("only_crawl_original", result.merged)
+                self.assertEqual(result.renamed_keys, [])
+                self.assertEqual(result.added_keys, ["only_crawl_original"])
+                self.assertEqual(result.unknown_keys, ["filter"])
+
+
+class ExampleTemplateDefaultsTest(unittest.TestCase):
+    """config.json.example 的报告相关默认值（防止误把开关默认改成开）。"""
+
+    def _template(self):
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "config.json.example",
+        )
+        return load_config_file(path)
+
+    def test_report_switches_default_off(self):
+        config = self._template()
+        self.assertEqual(config["weibo_archive_check"], 0)
+        self.assertEqual(config["weibo_crawl_summary"], 0)
+        self.assertEqual(config["weibo_archive_check_full"], 0)
+        self.assertEqual(config["weibo_media_check"], 0)
+        self.assertEqual(config["not_downloaded_record"], 0)
+
+    def test_report_dirs_defaults(self):
+        config = self._template()
+        self.assertEqual(config["weibo_archive_check_dir"], "report")
+        self.assertEqual(config["weibo_crawl_summary_dir"], "report")
+        self.assertEqual(config["weibo_archive_check_full_dir"], "report")
+        self.assertEqual(config["weibo_media_check_dir"], "report")
+        self.assertEqual(config["not_downloaded_record_dir"], "")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
