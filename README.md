@@ -38,8 +38,10 @@
 * 下载用户**原创和转发**微博下的一级评论（可选）
 * 下载用户**原创和转发**微博下的转发（可选）
 * 爬取结束后自动执行**本轮存档核对**（可选，需开启markdown存档），提示本轮未抓到的已存档微博与已抓到但未保存到本地的微博
+* 爬取结束后自动生成**本轮抓取情况报告**（可选，需开启markdown存档）：每个账号一份 txt，记录本轮抓到多少条、其中已抓取过多少条、新抓到多少条，以及新抓到微博的 ID 和日期
+* 爬取结束后自动执行**媒体完整性检查**（可选，需开启markdown存档）：检查 markdown 引用的本地图片/视频/Live Photo 是否存在、为空或明显损坏
 * 使用独立脚本执行**全量存档核对**（可选，只读），枚举平台完整时间线做双向比对，列出两类名单
-* 启动时**自动迁移旧配置键**（如 `missing_weibo_report` → `weibo_archive_check`），支持 `--check-config` 预览与 `--update-config` 写回
+* 启动时自动兼容旧配置键（如 `missing_weibo_report` → `weibo_archive_check`）；**升级代码后请手动在命令行运行 `python weibo.py --update-config`** 把兼容结果写回 `config.json`（自动备份，并尽量保留原有注释与排版），想先看差异可运行 `python weibo.py --check-config`
 
 如果你只对用户信息感兴趣，而不需要爬用户的微博，也可以通过设置实现只爬取微博用户信息的功能。程序也可以实现**爬取结果自动更新**，即：现在爬取了目标用户的微博，几天之后，目标用户可能又发新微博了。通过设置，可以实现每隔几天**增量爬取**用户这几天发的新微博。具体方法见[定期自动爬取微博](#7定期自动爬取微博可选)。
 
@@ -90,8 +92,10 @@
 * 结果文件：保存在 output_directory 指定的文件夹（默认 weibo_data）下以用户昵称为名的文件夹里，名字为"user_id.csv"形式
 * 微博图片：微博中的图片，保存在以用户昵称为名的文件夹下的img文件夹里
 * 微博视频：微博中的视频，保存在以用户昵称为名的文件夹下的video文件夹里
-* 存档核对报告：开启 `weibo_archive_check` 后，每次爬取结束会在 output_directory 根目录生成 `weibo_archive_check_<用户ID>_<昵称>_<时间>.txt`，每条记录包含微博链接、发布日期、本地文件路径；
-* 全量存档核对报告：运行 `weibo_archive_check_full.py` 后，在 `_archive_check_full/` 目录生成 `weibo_archive_check_full_<用户ID>_<昵称>_<时间>.txt`，列出「本轮未抓到的已存档微博」与「未保存的微博」两类名单。
+* 存档核对报告：开启 `weibo_archive_check` 后，每次爬取结束会在 `output_directory/report/` 生成 `weibo_archive_check_<用户ID>_<昵称>_<时间>.txt`，每条记录包含微博链接、发布日期、本地文件路径；**即使无差异也会生成**，报告里标注「核对结果: 无差异」；
+* 抓取情况报告：开启 `weibo_crawl_summary` 后，每次爬取顺利完成会在 `output_directory/report/` 为每个账号生成 `weibo_crawl_summary_<用户ID>_<昵称>_<时间>.txt`，记录本轮抓到微博数、其中已抓取过与新抓到的数量，以及新抓到微博的 ID、发布日期与链接；
+* 媒体完整性报告：开启 `weibo_media_check` 后，每次爬取结束会在 `output_directory/report/` 为每个账号生成 `weibo_media_check_<用户ID>_<昵称>_<时间>.txt`，列出 markdown 引用的本地媒体中「缺失 / 空文件 / 损坏或异常」的清单；
+* 全量存档核对报告：运行 `weibo_archive_check_full.py` 后，在 `output_directory/report/` 生成 `weibo_archive_check_full_<用户ID>_<昵称>_<时间>.txt`，列出「本轮未抓到的已存档微博」与「未保存的微博」两类名单。
 
 ## 实例
 
@@ -234,7 +238,7 @@ python weibo.py
 **下载的视频如下所示：**
 ![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/video.png)*video文件夹*
 
-本次下载了66个视频，是她原创微博中的视频和原创微博Live Photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序把它们以“微博id:本地文件路径:下载URL”的形式写到各自视频实际所在目录的not_downloaded.txt里（与图片规则相同：UTF-8、成功后自动清除、空文件重下）。
+本次下载了66个视频，是她原创微博中的视频和原创微博Live Photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序把它们以“微博id:本地文件路径:下载URL”的形式写到各自视频实际所在目录的not_downloaded.txt里（与图片规则相同：UTF-8、成功后自动清除、空文件重下）。`not_downloaded_record` 默认为 0（不产生失败记录），设为 1 才会记录；记录位置默认跟随媒体目录，也可以用 `not_downloaded_record_dir` 改为 report 目录或自定义目录。
 
 因为我本地没有安装MySQL数据库和MongoDB数据库，所以暂时设置成不写入数据库。如果你想要将爬取结果写入数据库，只需要先安装数据库（MySQL或MongoDB），再安装对应包（pymysql或pymongo），然后将mysql_write或mongodb_write值设置为1即可。写入MySQL需要用户名、密码等配置信息，这些配置如何设置见[设置数据库](#4设置数据库可选)部分。
 
@@ -401,10 +405,66 @@ write_mode控制结果文件格式，取值范围是csv、json、post、mongo、
 
 **设置weibo_archive_check**
 
-weibo_archive_check控制每次爬取结束后是否生成本轮存档核对报告，值为1代表生成，值为0代表不生成，默认值为0。该功能需要 `write_mode` 包含markdown；报告列出「本轮未抓到的已存档微博」与「已抓到但未保存到本地」两类名单，只做提示，不会自动补抓。旧配置键 `missing_weibo_report`、`weibo_delete_save_check` 会在启动时自动迁移为该键。
+weibo_archive_check控制每次爬取结束后是否生成本轮存档核对报告，值为1代表生成，值为0代表不生成，默认值为0。该功能需要 `write_mode` 包含markdown；报告列出「本轮未抓到的已存档微博」与「已抓到但未保存到本地」两类名单，只做提示，不会自动补抓。该值为1时每轮都会生成报告（无差异时也生成，报告里标注「核对结果: 无差异」）。旧配置键 `missing_weibo_report`、`weibo_delete_save_check` 会在启动时自动兼容；升级代码后请手动在命令行运行 `python weibo.py --update-config`，把兼容结果写回配置文件。
 
 ```
 "weibo_archive_check": 1,
+```
+
+**设置weibo_archive_check_dir**
+
+weibo_archive_check_dir控制本轮存档核对报告的输出目录，默认值为 "report"。相对路径相对于 `output_directory`（默认即 `weibo_data/report`）；也可以填绝对路径。
+
+```
+"weibo_archive_check_dir": "report",
+```
+
+**设置weibo_crawl_summary**
+
+weibo_crawl_summary控制每次爬取结束后是否为每个账号生成本轮抓取情况报告，值为1代表生成，值为0代表不生成，默认值为0。该功能需要 `write_mode` 包含markdown（报告用抓取前本地 markdown 存档判断哪些是「已抓取过」）；只有本轮抓取顺利完成时才生成。报告记录：本轮抓到多少条、其中已抓取过多少条、本轮新抓到多少条、新抓到微博的 ID/发布日期/链接、新微博按月分布，以及已确认不可见跳过、只抓原创过滤、媒体下载失败等计数。
+
+```
+"weibo_crawl_summary": 1,
+```
+
+**设置weibo_crawl_summary_dir**
+
+weibo_crawl_summary_dir控制本轮抓取情况报告的输出目录，默认值为 "report"；相对路径相对于 `output_directory`，也可以填绝对路径。
+
+```
+"weibo_crawl_summary_dir": "report",
+```
+
+**设置weibo_media_check**
+
+weibo_media_check控制每次爬取结束后是否生成媒体完整性报告，值为1代表生成，值为0代表不生成，默认值为0。该功能需要 `write_mode` 包含 markdown：扫描该用户 markdown 里引用的本地图片/视频/Live Photo，检查文件是否存在、是否为空、文件头/尾部是否明显损坏；只读，不下载、不修复。评论图片不在该报告范围内。
+
+```
+"weibo_media_check": 1,
+```
+
+**设置weibo_media_check_dir**
+
+weibo_media_check_dir控制媒体完整性报告的输出目录，默认值为 "report"；相对路径相对于 `output_directory`，也可以填绝对路径。
+
+```
+"weibo_media_check_dir": "report",
+```
+
+**设置weibo_archive_check_full**
+
+weibo_archive_check_full控制是否允许运行全量存档核对脚本 `weibo_archive_check_full.py`，值为1代表允许，值为0代表禁用（脚本会直接退出并提示），默认值为0。该开关只影响手动运行的全量核对脚本，不影响每次爬取结束后的本轮存档核对。
+
+```
+"weibo_archive_check_full": 1,
+```
+
+**设置weibo_archive_check_full_dir**
+
+weibo_archive_check_full_dir控制全量存档核对报告的输出目录，默认值为 "report"；相对路径相对于 `output_directory`，也可以填绝对路径。
+
+```
+"weibo_archive_check_full_dir": "report",
 ```
 
 **设置invisible_weibo_dirs**
@@ -475,6 +535,28 @@ retweet_live_photo_download控制是否下载原创微博Live Photo中的视频�
 
 代表不下载转发微博中Live Photo的视频。特别注意，本设置只有在爬全部微博（原创+转发），即only_crawl_original值为0时生效，否则程序会跳过转发微博的视频下载。
 
+**设置not_downloaded_record**
+
+not_downloaded_record控制媒体下载失败时是否记录失败信息，值为1代表记录，值为0代表不记录（也不清理旧记录），默认值为0。记录格式为“微博id:本地文件路径:下载URL”；重新下载成功、或文件已存在且通过轻量校验后，会自动清除对应记录。
+
+```
+"not_downloaded_record": 1,
+```
+
+**设置not_downloaded_record_dir**
+
+not_downloaded_record_dir控制失败记录的位置，默认值为空字符串，表示跟随媒体文件所在目录（与之前行为一致）；填 "report" 表示集中写到 `output_directory/report/not_downloaded.txt`；也可以填其他相对路径（相对 `output_directory`）或绝对路径。该配置只在 `not_downloaded_record=1` 时生效。
+
+```
+"not_downloaded_record_dir": "",
+```
+
+**媒体文件轻量校验**
+
+- 下载前：本地已有且非空的文件会先做文件头/尾部校验，明显损坏则删除重下；0 字节文件删除后重下；校验通过的文件不会重复下载、不消耗流量。
+- 下载后：比对 `Content-Length` 与实际字节数；JPEG/PNG/GIF 校验头尾，MP4/MOV/WebM 校验容器签名；HTML/XML 错误页、明显不完整的内容不会落盘；失败不会留下半成品文件。
+- 失败时按 `not_downloaded_record` 决定是否写 `not_downloaded.txt`，并在日志与（开启时）本轮抓取情况报告的「媒体下载失败」计数里体现。
+- 媒体完整性报告：见上面的 `weibo_media_check`，用于发现 markdown 引用的媒体缺失/为空/损坏。
 
 **设置user_id_as_folder_name**
 
@@ -685,17 +767,21 @@ python weibo.py
 
 运行;
 
-首次使用或升级代码后，可先预览配置差异（不写文件）：
+升级代码后，请手动在命令行完成配置写回（程序不会自动修改 `config.json`）：
+
+1. 先预览差异（不写文件）：
 
 ```bash
 python weibo.py --check-config
 ```
 
-确认后写回配置（会先备份 config.json）：
+2. 确认后写回（会先备份 `config.json`；尽量保留原有注释与排版，无法安全保留时会回退为规范化 JSON 写入并提示）：
 
 ```bash
 python weibo.py --update-config
 ```
+
+不写回也能正常使用（程序按旧键名兼容运行），只是配置文件里保留旧键名。
 
 需要全量核对存档（只读，枚举平台完整时间线）时，运行独立脚本：
 
@@ -703,7 +789,7 @@ python weibo.py --update-config
 python weibo_archive_check_full.py
 ```
 
-运行 `python weibo_archive_check_full.py --help` 可查看参数（`--users`、`--since`、`--max-pages`）;
+运行 `python weibo_archive_check_full.py --help` 可查看参数（`--users`、`--since`、`--max-pages`）；该脚本受配置项 `weibo_archive_check_full` 控制（默认 0；设为 1 才能运行）。报告输出目录由 `weibo_archive_check_full_dir` 控制（默认 `output_directory/report`）。
 
 ### 6.按需求修改脚本（可选）
 
