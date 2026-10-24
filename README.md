@@ -37,6 +37,9 @@
 * 下载用户**转发**微博**Live Photo**中的**视频**（可选）
 * 下载用户**原创和转发**微博下的一级评论（可选）
 * 下载用户**原创和转发**微博下的转发（可选）
+* 爬取结束后自动执行**本轮存档核对**（可选，需开启markdown存档），提示本轮未抓到的已存档微博与已抓到但未保存到本地的微博
+* 使用独立脚本执行**全量存档核对**（可选，只读），枚举平台完整时间线做双向比对，列出两类名单
+* 启动时**自动迁移旧配置键**（如 `missing_weibo_report` → `weibo_archive_check`），支持 `--check-config` 预览与 `--update-config` 写回
 
 如果你只对用户信息感兴趣，而不需要爬用户的微博，也可以通过设置实现只爬取微博用户信息的功能。程序也可以实现**爬取结果自动更新**，即：现在爬取了目标用户的微博，几天之后，目标用户可能又发新微博了。通过设置，可以实现每隔几天**增量爬取**用户这几天发的新微博。具体方法见[定期自动爬取微博](#7定期自动爬取微博可选)。
 
@@ -84,9 +87,11 @@
 * 话题：微博话题，即两个#中的内容，若存在多个话题，每个url以英文逗号分隔，若没有则值为''
 * @用户：微博@的用户，若存在多个@用户，每个url以英文逗号分隔，若没有则值为''
 * 原始微博：为转发微博所特有，是转发微博中那条被转发的微博，存储为字典形式，包含了上述微博信息中的所有内容，如微博id、微博内容等等
-* 结果文件：保存在当前目录weibo文件夹下以用户昵称为名的文件夹里，名字为"user_id.csv"形式
+* 结果文件：保存在 output_directory 指定的文件夹（默认 weibo_data）下以用户昵称为名的文件夹里，名字为"user_id.csv"形式
 * 微博图片：微博中的图片，保存在以用户昵称为名的文件夹下的img文件夹里
 * 微博视频：微博中的视频，保存在以用户昵称为名的文件夹下的video文件夹里
+* 存档核对报告：开启 `weibo_archive_check` 后，每次爬取结束会在 output_directory 根目录生成 `weibo_archive_check_<用户ID>_<昵称>_<时间>.txt`，每条记录包含微博链接、发布日期、本地文件路径；
+* 全量存档核对报告：运行 `weibo_archive_check_full.py` 后，在 `_archive_check_full/` 目录生成 `weibo_archive_check_full_<用户ID>_<昵称>_<时间>.txt`，列出「本轮未抓到的已存档微博」与「未保存的微博」两类名单。
 
 ## 实例
 
@@ -125,7 +130,7 @@ query_list代表要爬取的微博关键词，为空（[]）则爬取全部；
 python weibo.py
 ```
 
-程序会自动生成一个weibo文件夹，我们以后爬取的所有微博都被存储在weibo文件夹里。然后程序在该文件夹下生成一个名为"Dear-迪丽热巴"的文件夹，迪丽热巴的所有微博爬取结果都在这里。"Dear-迪丽热巴"文件夹里包含一个csv文件、一个img文件夹和一个video文件夹，img文件夹用来存储下载到的图片，video文件夹用来存储下载到的视频。如果你设置了保存数据库功能，这些信息也会保存在数据库里，数据库设置见[设置数据库](#4设置数据库可选)部分。
+程序会自动生成 output_directory 指定的文件夹（默认 weibo_data），我们以后爬取的所有微博都被存储在该文件夹里。然后程序在该文件夹下生成一个名为"Dear-迪丽热巴"的文件夹，迪丽热巴的所有微博爬取结果都在这里。"Dear-迪丽热巴"文件夹里包含一个csv文件、一个img文件夹和一个video文件夹，img文件夹用来存储下载到的图片，video文件夹用来存储下载到的视频。如果你设置了保存数据库功能，这些信息也会保存在数据库里，数据库设置见[设置数据库](#4设置数据库可选)部分。
 
 **csv文件结果如下所示：**
 ![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/weibo_csv.png)*1669879400.csv*
@@ -224,12 +229,12 @@ python weibo.py
 
 ![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/img.png)*img文件夹*
 
-本次下载了788张图片，大小一共1.21GB，包括她原创微博中的所有图片。图片名为yyyymmdd+微博id的形式，若某条微博存在多张图片，则图片名中还会包括它在微博图片中的序号。若某图片下载失败，程序则会以“weibo_id:pic_url”的形式将出错微博id和图片url写入同文件夹下的not_downloaded.txt里；若图片全部下载成功则不会生成not_downloaded.txt；
+本次下载了788张图片，大小一共1.21GB，包括她原创微博中的所有图片。图片名为yyyymmdd+微博id的形式，若某条微博存在多张图片，则图片名中还会包括它在微博图片中的序号。若某张图片下载失败，程序会把“微博id:本地文件路径:下载URL”以UTF-8写入该图片所在目录的not_downloaded.txt里；重新下载成功（或文件已存在且非空）后会自动清除对应记录，0字节的空文件会被视为未下载并重下；若图片全部下载成功则不会留下记录；
 
 **下载的视频如下所示：**
 ![](https://github.com/dataabc/media/blob/master/weibo-crawler/images/video.png)*video文件夹*
 
-本次下载了66个视频，是她原创微博中的视频和原创微博Live Photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序将它们的微博id和视频url分别以“weibo_id:video_url”的形式写到了同文件夹下的not_downloaded.txt里。
+本次下载了66个视频，是她原创微博中的视频和原创微博Live Photo中的视频，视频名为yyyymmdd+微博id的形式。有三个视频因为网络原因下载失败，程序把它们以“微博id:本地文件路径:下载URL”的形式写到各自视频实际所在目录的not_downloaded.txt里（与图片规则相同：UTF-8、成功后自动清除、空文件重下）。
 
 因为我本地没有安装MySQL数据库和MongoDB数据库，所以暂时设置成不写入数据库。如果你想要将爬取结果写入数据库，只需要先安装数据库（MySQL或MongoDB），再安装对应包（pymysql或pymongo），然后将mysql_write或mongodb_write值设置为1即可。写入MySQL需要用户名、密码等配置信息，这些配置如何设置见[设置数据库](#4设置数据库可选)部分。
 
@@ -393,6 +398,22 @@ write_mode控制结果文件格式，取值范围是csv、json、post、mongo、
 ```
 
 代表将结果信息写入csv文件和json文件。特别注意，如果你想写入数据库，除了在write_mode添加对应数据库的名字外，还应该安装相关数据库和对应python模块，具体操作见[设置数据库](#4设置数据库可选)部分。
+
+**设置weibo_archive_check**
+
+weibo_archive_check控制每次爬取结束后是否生成本轮存档核对报告，值为1代表生成，值为0代表不生成，默认值为0。该功能需要 `write_mode` 包含markdown；报告列出「本轮未抓到的已存档微博」与「已抓到但未保存到本地」两类名单，只做提示，不会自动补抓。旧配置键 `missing_weibo_report`、`weibo_delete_save_check` 会在启动时自动迁移为该键。
+
+```
+"weibo_archive_check": 1,
+```
+
+**设置invisible_weibo_dirs**
+
+invisible_weibo_dirs是已确认不可见的微博所在的目录列表（如用户核实后被删除、隐藏、仅粉丝可见的微博），默认值为["已不可见"]。这些目录中的微博不参与存档核对，正常爬取和全量核对时也不会写回。用户目录下的ignore_ids.txt作用相同，适合无法移动markdown文件的情况。
+
+```
+"invisible_weibo_dirs": ["已不可见"],
+```
 
 **设置original_pic_download**
 
@@ -663,6 +684,26 @@ python weibo.py
 ```
 
 运行;
+
+首次使用或升级代码后，可先预览配置差异（不写文件）：
+
+```bash
+python weibo.py --check-config
+```
+
+确认后写回配置（会先备份 config.json）：
+
+```bash
+python weibo.py --update-config
+```
+
+需要全量核对存档（只读，枚举平台完整时间线）时，运行独立脚本：
+
+```bash
+python weibo_archive_check_full.py
+```
+
+运行 `python weibo_archive_check_full.py --help` 可查看参数（`--users`、`--since`、`--max-pages`）;
 
 ### 6.按需求修改脚本（可选）
 
