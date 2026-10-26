@@ -13,7 +13,8 @@
     "markdown_split_by": "day_by_month", // markdown文件分割方式，可选项：day（按天，平铺），day_by_month（按天，按月归档到子文件夹），month（按月），year（按年），all（所有数据在一个文件）
     "markdown_sort_order": "new_to_old", // markdown中同一分组内多条微博的排序方式，可选项：new_to_old（从新到旧，最新在前），old_to_new（从旧到新，最早在前）
     "markdown_image_order": "live_photo_first", // markdown中图片与Live Photo的排列顺序，可选项：live_photo_first（Live Photo排在图片前面），image_first_interleaved（图片优先，同名Live Photo插入到对应图片下方）
-    "missing_weibo_report": 0, // 是否在每次爬取结束后，在 output_directory 下生成本次爬取较上次缺失（已删除/未爬到）的微博ID报告 0 = 不生成，1 = 生成
+    "weibo_archive_check": 0, // 每次爬取结束后核对两项：①本轮未抓到的已存档微博（可能已被删除或隐藏）②已抓到但未保存到本地的微博 0 = 不核对，1 = 核对
+    "invisible_weibo_dirs": ["已不可见"], // 已确认不可见的微博所在目录（默认「已不可见」）；这些微博不会被当成未保存的微博补回，正常爬取也不写入
     "markdown_preview": {
         "link_preview": 0, // 网页链接是否预览（!语法） 0 = 普通链接 [text](url)，1 = 预览图片 ![](url)
         "original_video_preview": 0, // 原创微博视频是否预览 0 = 普通链接，1 = 预览
