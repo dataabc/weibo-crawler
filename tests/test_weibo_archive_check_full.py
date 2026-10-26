@@ -140,5 +140,41 @@ class ParserTest(unittest.TestCase):
         self.assertNotIn("report_dir", dests)
 
 
+class FullCheckSwitchTest(unittest.TestCase):
+    def test_helper_defaults_to_disabled(self) -> None:
+        self.assertFalse(weibo_archive_check_full._full_check_enabled({}))
+        self.assertTrue(
+            weibo_archive_check_full._full_check_enabled({"weibo_archive_check_full": 1})
+        )
+        self.assertFalse(
+            weibo_archive_check_full._full_check_enabled({"weibo_archive_check_full": 0})
+        )
+
+    def test_main_exits_before_weibo_init_when_disabled(self) -> None:
+        """配置 weibo_archive_check_full=0 时脚本直接退出，不初始化 Weibo。"""
+        module = weibo_archive_check_full.weibo
+        old_get_config = module.get_config
+        old_weibo_cls = module.Weibo
+        calls = []
+
+        def fake_get_config():
+            return {"weibo_archive_check_full": 0}
+
+        def fake_weibo(config):
+            calls.append(config)
+            return None
+
+        try:
+            module.get_config = fake_get_config
+            module.Weibo = fake_weibo
+            code = weibo_archive_check_full.main(["--users", "123"])
+        finally:
+            module.get_config = old_get_config
+            module.Weibo = old_weibo_cls
+
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()

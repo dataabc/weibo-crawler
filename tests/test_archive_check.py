@@ -110,9 +110,21 @@ class ArchiveCheckTest(unittest.TestCase):
         self.wb.check_start_dt = datetime(2024, 6, 1)
         self.wb.check_end_dt = datetime(2024, 6, 30)
 
-    def _reports(self):
-        root = Path(__file__).resolve().parents[1] / self.out_dir_name
+    def _reports(self, sub: str = "report"):
+        root = Path(__file__).resolve().parents[1] / self.out_dir_name / sub
         return sorted(root.glob("weibo_archive_check_*.txt")) if root.exists() else []
+
+    def test_snapshot_archived_ids_succeeds(self) -> None:
+        """抓取前快照必须成功（曾因日志里引用未定义变量而被异常吞掉）。"""
+        write_text(
+            self.user_dir / "2024-06" / "2024-06-01.md",
+            make_md(entry("2024-06-01 10:00:00", "1111111111111111")),
+        )
+        self.wb._snapshot_archived_ids()
+        self.assertIsNotNone(self.wb.archived_ids_before)
+        self.assertIsNotNone(self.wb.archived_entries_before)
+        self.assertEqual(self.wb.check_start_dt, datetime(2024, 6, 1))
+        self.assertIn("1111111111111111", self.wb.archived_ids_before)
 
     def test_not_returned_count_detected(self) -> None:
         """本次检查范围内主存档有、本轮没返回 → 本轮未抓到的已存档微博。"""
@@ -132,8 +144,8 @@ class ArchiveCheckTest(unittest.TestCase):
         self.assertIn("本地文件:", text)
         self.assertIn("not_returned_count: 1", text)
 
-    def test_no_diff_no_report(self) -> None:
-        """本次检查范围内完全一致 → 不生成报告文件。"""
+    def test_no_diff_still_generates_report(self) -> None:
+        """本次检查范围内完全一致 → 仍生成报告，并标注无差异。"""
         write_text(
             self.user_dir / "2024-06" / "2024-06-01.md",
             make_md(entry("10:00:00", "2001")),
@@ -141,7 +153,40 @@ class ArchiveCheckTest(unittest.TestCase):
         self._mark_success()
         self.wb.crawled_ids_this_run = {"2001"}
         self.wb.generate_archive_check_report()
+        reports = self._reports()
+        self.assertEqual(len(reports), 1)
+        text = reports[0].read_text(encoding="utf-8")
+        self.assertIn("核对结果: 无差异", text)
+        self.assertIn("（无）", text)
+        self.assertIn("not_returned_count: 0", text)
+        self.assertIn("not_saved_count: 0", text)
+
+    def test_custom_report_dir(self) -> None:
+        """weibo_archive_check_dir 可自定义（相对 output_directory）。"""
+        write_text(
+            self.user_dir / "2024-06" / "2024-06-01.md",
+            make_md(entry("10:00:00", "2001")),
+        )
+        self._mark_success()
+        self.wb.crawled_ids_this_run = {"2001"}
+        self.wb.archive_check_dir = "custom_reports"
+        self.wb.generate_archive_check_report()
+        self.assertEqual(len(self._reports("custom_reports")), 1)
         self.assertEqual(self._reports(), [])
+
+    def test_report_output_dir_resolution(self) -> None:
+        """目录配置解析：空=默认 report；相对=相对 output_directory；绝对=原样。"""
+        project = Path(weibo.__file__).resolve().parent
+        self.assertEqual(
+            self.wb._report_output_dir(""),
+            str(project / self.out_dir_name / "report"),
+        )
+        self.assertEqual(
+            self.wb._report_output_dir("x/y"),
+            str(project / self.out_dir_name / "x/y"),
+        )
+        abs_path = str(project / "abs_reports")
+        self.assertEqual(self.wb._report_output_dir(abs_path), abs_path)
 
     def test_crawl_not_success_skips_report(self) -> None:
         """本轮抓取未顺利完成 → 不出报告（避免误报）。"""
@@ -192,7 +237,13 @@ class ArchiveCheckTest(unittest.TestCase):
         self._mark_success()
         self.wb.crawled_ids_this_run = {"5002", "5001"}
         self.wb.generate_archive_check_report()
-        self.assertEqual(self._reports(), [])
+        reports = self._reports()
+        self.assertEqual(len(reports), 1)
+        text = reports[0].read_text(encoding="utf-8")
+        # 5001 属于已确认不可见，不应被当成「未保存的微博」
+        self.assertNotIn("https://m.weibo.cn/detail/5001", text)
+        self.assertIn("not_saved_count: 0", text)
+        self.assertIn("核对结果: 无差异", text)
 
     def test_query_mode_skips(self) -> None:
         """关键词(query)模式跳过存档核对。"""

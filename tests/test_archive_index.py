@@ -113,15 +113,15 @@ class ArchiveIndexTest(unittest.TestCase):
 
     def test_month_file_full_heading(self) -> None:
         write_text(
-            self.user_dir / "2024-08.md",
+            self.user_dir / "2023-03.md",
             make_md(
-                entry("2024-08-03 09:00:00", "5001"),
-                entry("2024-08-04 09:00:00", "5002"),
+                entry("2023-03-06 09:00:00", "5001"),
+                entry("2023-03-07 09:00:00", "5002"),
             ),
         )
         ids, _ = ai.collect_archive_ids(str(self.user_dir))
-        self.assertEqual(ids["5001"], datetime(2024, 8, 3, 9, 0, 0))
-        self.assertEqual(ids["5002"], datetime(2024, 8, 4, 9, 0, 0))
+        self.assertEqual(ids["5001"], datetime(2023, 3, 6, 9, 0, 0))
+        self.assertEqual(ids["5002"], datetime(2023, 3, 7, 9, 0, 0))
 
     def test_unknown_date_excluded_from_window(self) -> None:
         write_text(

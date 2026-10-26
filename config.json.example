@@ -13,7 +13,14 @@
     "markdown_split_by": "day_by_month", // markdown文件分割方式，可选项：day（按天，平铺），day_by_month（按天，按月归档到子文件夹），month（按月），year（按年），all（所有数据在一个文件）
     "markdown_sort_order": "new_to_old", // markdown中同一分组内多条微博的排序方式，可选项：new_to_old（从新到旧，最新在前），old_to_new（从旧到新，最早在前）
     "markdown_image_order": "live_photo_first", // markdown中图片与Live Photo的排列顺序，可选项：live_photo_first（Live Photo排在图片前面），image_first_interleaved（图片优先，同名Live Photo插入到对应图片下方）
+    "weibo_crawl_summary": 0, // 每次爬取结束后是否为每个账号生成本轮抓取情况报告（抓到多少条、其中已抓取过多少条、新抓到多少条，以及新抓到微博的 ID 和日期）0 = 不生成，1 = 生成（需要 write_mode 含 markdown）
+    "weibo_crawl_summary_dir": "report", // 本轮抓取情况报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
+    "weibo_media_check": 0, // 每次爬取结束后是否生成媒体完整性报告（检查 markdown 引用的本地媒体是否存在、为空或明显损坏）0 = 不生成，1 = 生成（需要 write_mode 含 markdown）
+    "weibo_media_check_dir": "report", // 媒体完整性报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
     "weibo_archive_check": 0, // 每次爬取结束后核对两项：①本轮未抓到的已存档微博（可能已被删除或隐藏）②已抓到但未保存到本地的微博 0 = 不核对，1 = 核对
+    "weibo_archive_check_dir": "report", // 本轮存档核对报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
+    "weibo_archive_check_full": 0, // 是否允许运行全量存档核对脚本 weibo_archive_check_full.py 0 = 禁用（默认），1 = 允许
+    "weibo_archive_check_full_dir": "report", // 全量存档核对报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
     "invisible_weibo_dirs": ["已不可见"], // 已确认不可见的微博所在目录（默认「已不可见」）；这些微博不会被当成未保存的微博补回，正常爬取也不写入
     "markdown_preview": {
         "link_preview": 0, // 网页链接是否预览（!语法） 0 = 普通链接 [text](url)，1 = 预览图片 ![](url)
@@ -78,6 +85,8 @@
     "retweet_video_download": 0, // 是否下载转发微博视频 0 = 不下载，1 = 下载
     "original_live_photo_download": 0, // 是否下载原创微博Live Photo 0 = 不下载，1 = 下载
     "retweet_live_photo_download": 0, // 是否下载转发微博Live Photo 0 = 不下载，1 = 下载
+    "not_downloaded_record": 0, // 媒体下载失败时是否写入失败记录 0 = 不记录（默认），1 = 记录（下载成功后的自动清理也随之关闭）
+    "not_downloaded_record_dir": "", // 下载失败记录位置：空或 media = 跟随媒体文件所在目录（默认）；report = output_directory/report；其他 = 自定义目录（相对 output_directory 或绝对路径）
     "download_comment": 0, // 是否下载评论 0 = 不下载，1 = 下载
     "comment_max_download_count": 100, // 单条微博最大评论下载数量， 仅当 download_comment = 1 时生效
     "comment_pic_download": 0, // 是否下载评论图片 0 = 不下载，1 = 下载

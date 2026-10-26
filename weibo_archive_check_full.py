@@ -227,7 +227,9 @@ def audit_one_user(
         len(platform), len(local_entries), len(diff.not_returned), len(diff.not_saved),
     )
 
-    report_dir = os.path.join(PROJECT_DIR, wb.output_directory, "_archive_check_full")
+    report_dir = wb._report_output_dir(
+        getattr(wb, "archive_check_full_dir", "report")
+    )
     os.makedirs(report_dir, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = os.path.join(
@@ -285,6 +287,11 @@ def audit_one_user(
     return 0 if enumeration.ok else 2
 
 
+def _full_check_enabled(config: dict) -> bool:
+    """配置总开关：weibo_archive_check_full=0 时禁止运行（默认 0 = 禁用）。"""
+    return config.get("weibo_archive_check_full", 0) != 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="微博全量存档核对（只读）",
@@ -311,6 +318,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = weibo.get_config()
+        if not _full_check_enabled(config):
+            logger.info(
+                "配置中 weibo_archive_check_full=0（默认关闭），已禁用全量存档核对；"
+                "如需使用请把该配置改为 1"
+            )
+            return 0
         wb = weibo.Weibo(config)
     except SystemExit:
         raise

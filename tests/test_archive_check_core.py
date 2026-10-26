@@ -141,9 +141,9 @@ class IgnoreListTest(unittest.TestCase):
         """`已不可见/` 里带 tab 的 marker 也要能识别（B6）。"""
         with tempfile.TemporaryDirectory() as tmp:
             user_dir = Path(tmp) / "用户"
-            gone = user_dir / "已不可见" / "2024-08"
+            gone = user_dir / "已不可见" / "2023-03"
             gone.mkdir(parents=True)
-            (gone / "2024-08-04.md").write_text(
+            (gone / "2023-03-06.md").write_text(
                 "### 10:00:00\n<!-- weibo_id: 3003\t -->\n内容\n", encoding="utf-8"
             )
             ids = archive_index.collect_known_invisible_ids(str(user_dir), ["已不可见"])
