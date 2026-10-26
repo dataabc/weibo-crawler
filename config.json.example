@@ -1,149 +1,161 @@
 {
-    "user_id_list": "user_id_list.txt", // 用户ID列表文件路径或用户ID数组，格式：每行一个用户ID，或 ["123456", "789012"]
-    "only_crawl_original": 0, // 是否只爬取原创微博 0 = 爬取全部（原创+转发），1 = 只爬取原创微博
-    "since_date": "2026-01-01", // 开始爬取的时间范围（格式：YYYY-MM-DD），只爬取该日期之后发布的微博
-    "end_date": "", // 截止爬取的时间范围（格式：YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS），为空则不限制，只爬取该日期之前发布的微博
-    "start_page": 1, // 从第几页开始爬取，通常保持为1，断点续传时可调整
-    "page_weibo_count": 20, // 每页爬取的微博数量（10-50之间），建议：10-20，太大可能被限制
+
+    // ==================== 1. 账号与时间范围 ====================
+    "user_id_list": "user_id_list.txt", // 用户 ID 列表文件或 ID 数组；文件每行一个用户 ID，可追加起始日期、关键词
+    "only_crawl_original": 0,           // 0 = 抓取原创+转发；1 = 只抓原创
+    "since_date": "2026-01-01",         // 抓取起始日期：YYYY-MM-DD、YYYY-MM-DDTHH:MM:SS 或 N（N 天前）
+    "end_date": "",                     // 抓取截止日期：格式同 since_date；空 = 不限制
+    "start_page": 1,                    // 起始页码（从 1 开始），断点续传时使用
+    "page_weibo_count": 20,             // 每页微博数：10-100，建议 10-20（过大易触发限流）
+
+    // ==================== 2. 输出与写入模式 ====================
+    // 输出格式，可多选：
+    //   csv      → CSV 文件
+    //   json     → JSON 文件
+    //   mysql    → MySQL 数据库
+    //   mongo    → MongoDB 数据库
+    //   sqlite   → SQLite 数据库
+    //   post     → POST 推送到接口
+    //   markdown → Markdown 存档
     "write_mode": [
         "markdown",
         "csv",
         "json"
-    ], // 输出格式（可多选），可选项：csv, json, mysql, mongo, sqlite, post, markdown，示例：["markdown"] 或 ["markdown", "csv", "json"]
-    "markdown_split_by": "day_by_month", // markdown文件分割方式，可选项：day（按天，平铺），day_by_month（按天，按月归档到子文件夹），month（按月），year（按年），all（所有数据在一个文件）
-    "markdown_sort_order": "new_to_old", // markdown中同一分组内多条微博的排序方式，可选项：new_to_old（从新到旧，最新在前），old_to_new（从旧到新，最早在前）
-    "markdown_image_order": "live_photo_first", // markdown中图片与Live Photo的排列顺序，可选项：live_photo_first（Live Photo排在图片前面），image_first_interleaved（图片优先，同名Live Photo插入到对应图片下方）
-    "weibo_crawl_summary": 0, // 每次爬取结束后是否为每个账号生成本轮抓取情况报告（抓到多少条、其中已抓取过多少条、新抓到多少条，以及新抓到微博的 ID 和日期）0 = 不生成，1 = 生成（需要 write_mode 含 markdown）
-    "weibo_crawl_summary_dir": "report", // 本轮抓取情况报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
-    "weibo_media_check": 0, // 每次爬取结束后是否生成媒体完整性报告（检查 markdown 引用的本地媒体是否存在、为空或明显损坏）0 = 不生成，1 = 生成（需要 write_mode 含 markdown）
-    "weibo_media_check_dir": "report", // 媒体完整性报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
-    "weibo_archive_check": 0, // 每次爬取结束后核对两项：①本轮未抓到的已存档微博（可能已被删除或隐藏）②已抓到但未保存到本地的微博 0 = 不核对，1 = 核对
-    "weibo_archive_check_dir": "report", // 本轮存档核对报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
-    "weibo_archive_check_full": 0, // 是否允许运行全量存档核对脚本 weibo_archive_check_full.py 0 = 禁用（默认），1 = 允许
-    "weibo_archive_check_full_dir": "report", // 全量存档核对报告输出目录：相对 output_directory（默认 weibo_data/report），也可填绝对路径
-    "invisible_weibo_dirs": ["已不可见"], // 已确认不可见的微博所在目录（默认「已不可见」）；这些微博不会被当成未保存的微博补回，正常爬取也不写入
-    "markdown_preview": {
-        "link_preview": 0, // 网页链接是否预览（!语法） 0 = 普通链接 [text](url)，1 = 预览图片 ![](url)
-        "original_video_preview": 0, // 原创微博视频是否预览 0 = 普通链接，1 = 预览
-        "retweet_video_preview": 0, // 转发微博视频是否预览 0 = 普通链接，1 = 预览
-        "original_image_preview": 1, // 原创微博图片是否预览 0 = 普通链接，1 = 预览
-        "retweet_image_preview": 1, // 转发微博图片是否预览 0 = 普通链接，1 = 预览
-        "original_live_photo_preview": 0, // 原创微博Live Photo是否预览 0 = 普通链接，1 = 预览
-        "retweet_live_photo_preview": 0, // 转发微博Live Photo是否预览 0 = 普通链接，1 = 预览
-        "inline_image_preview": 1 // 正文中"查看图片"是否预览 0 = 普通链接，1 = 预览
+    ],
+    "output_directory": "weibo_data", // 数据输出目录：相对项目根或绝对路径
+    "user_id_as_folder_name": 0,      // 0 = 用户目录用昵称；1 = 用用户 ID
+    "remove_html_tag": 1,             // 0 = 保留 HTML 标签；1 = 移除（正文与评论转纯文本）
+
+    // ==================== 3. Markdown 存档 ====================
+    "markdown_split_by": "day_by_month",        // 可选：day（按天）、day_by_month（按天+按月归档）、month（按月）、year（按年）、all（全部单文件）
+    "markdown_sort_order": "new_to_old",        // 可选：new_to_old（新→旧）、old_to_new（旧→新）
+    "markdown_image_order": "live_photo_first", // 可选：live_photo_first（Live Photo 优先）、image_first_interleaved（图片优先）
+    "markdown_preview": {                       // md 媒体预览开关（0 = 普通链接；1 = 预览）
+        "link_preview": 0,                // 0 = 普通链接；1 = 预览
+        "inline_image_preview": 1,        // 0 = 普通链接；1 = 预览（正文「查看图片」）
+        "original_image_preview": 1,      // 0 = 普通链接；1 = 预览
+        "retweet_image_preview": 1,       // 0 = 普通链接；1 = 预览
+        "original_video_preview": 0,      // 0 = 普通链接；1 = 预览
+        "retweet_video_preview": 0,       // 0 = 普通链接；1 = 预览
+        "original_live_photo_preview": 0, // 0 = 普通链接；1 = 预览
+        "retweet_live_photo_preview": 0   // 0 = 普通链接；1 = 预览
     },
-    // ==========================================================================
-    // 为什么会有两个配置块（markdown_file_dir 和 download_folder_name）？
-    //
-    // 这取决于是否在 write_mode 中启用了 "markdown"。
-    //
-    // ——————————————————————————————————————————————————————————————————————
-    // 场景一：启用了 "markdown"（write_mode 含 "markdown"）
-    //
-    //   程序会生成 .md 文件，并下载媒体文件到本地。
-    //
-    //   您应该修改以下两个配置块的全部项，并让相同媒体的值保持一致：
-    //     ● markdown_file_dir    → 决定 .md 文件里链接的路径
-    //                               同时决定图片的下载目录
-    //     ● download_folder_name → 决定视频和 Live Photo 的下载目录
-    //                             （其中图片项在 md 模式下不生效，可忽略）
-    //
-    // ——————————————————————————————————————————————————————————————————————
-    // 场景二：没有启用 "markdown"（write_mode 不含 "markdown"）
-    //
-    //   程序不会生成 .md 文件，只下载媒体文件到本地。
-    //
-    //   你只需修改 download_folder_name 的全部六项：
-    //     ● download_folder_name → 决定所有媒体文件的下载目录
-    //     ● markdown_file_dir    → 不参与任何逻辑，完全忽略
-    //
-    // ——————————————————————————————————————————————————————————————————————
-    //
-    // 图片的下载目录在 md 模式下改由 markdown_file_dir 接管；
-    // 视频和 Live Photo 的下载目录在所有模式下统一由 download_folder_name 接管。
-    //
-    // ==========================================================================
-    "markdown_file_dir": {
-        "original_image_dir": "img", // md 中图片链接路径 & 图片下载目录
-        "retweet_image_dir": "img",
-        "original_video_dir": "原创微博视频", // md 中视频链接路径
-        "retweet_video_dir": "转发微博视频",
-        "original_live_photo_dir": "原创微博Live Photo视频", // md 中 Live Photo 链接路径
-        "retweet_live_photo_dir": "转发微博Live Photo视频"
+    "markdown_file_dir": {                      // md 内链接路径（同时决定 md 模式的图片下载目录）
+        "original_image_dir": "img",                   // 原创图片链接路径（md 内相对路径）
+        "retweet_image_dir": "img",                    // 转发图片链接路径（md 内相对路径）
+        "original_video_dir": "原创微博视频",                // 原创视频链接路径（md 内相对路径）
+        "retweet_video_dir": "转发微博视频",                 // 转发视频链接路径（md 内相对路径）
+        "original_live_photo_dir": "原创微博Live Photo视频", // 原创 Live Photo 链接路径（md 内相对路径）
+        "retweet_live_photo_dir": "转发微博Live Photo视频",  // 转发 Live Photo 链接路径（md 内相对路径）
+        "comment_image_dir": "评论图片"                    // 评论图片链接路径（md 内相对路径）
     },
-    "download_folder_name": {
-        "original_image_folder": "原创微博图片", // 图片下载目录（仅非 md 模式生效）
-        "retweet_image_folder": "转发微博图片",
-        "original_video_folder": "原创微博视频", // 视频下载目录（所有模式生效）
-        "retweet_video_folder": "转发微博视频",
-        "original_live_photo_folder": "原创微博Live Photo视频", // Live Photo 下载目录（所有模式生效）
-        "retweet_live_photo_folder": "转发微博Live Photo视频"
+    "download_folder_name": {                   // 媒体下载目录（md 模式下视频与 Live Photo 也生效）
+        "original_image_folder": "原创微博图片",                // 原创图片下载目录名
+        "retweet_image_folder": "转发微博图片",                 // 转发图片下载目录名
+        "original_video_folder": "原创微博视频",                // 原创视频下载目录名
+        "retweet_video_folder": "转发微博视频",                 // 转发视频下载目录名
+        "original_live_photo_folder": "原创微博Live Photo视频", // 原创 Live Photo 下载目录名
+        "retweet_live_photo_folder": "转发微博Live Photo视频",  // 转发 Live Photo 下载目录名
+        "comment_image_folder": "评论图片"                    // 评论图片下载目录名
     },
-    "original_pic_download": 0, // 是否下载原创微博图片 0 = 不下载，1 = 下载
-    "retweet_pic_download": 0, // 是否下载转发微博图片 0 = 不下载，1 = 下载
-    "original_video_download": 0, // 是否下载原创微博视频 0 = 不下载，1 = 下载
-    "retweet_video_download": 0, // 是否下载转发微博视频 0 = 不下载，1 = 下载
-    "original_live_photo_download": 0, // 是否下载原创微博Live Photo 0 = 不下载，1 = 下载
-    "retweet_live_photo_download": 0, // 是否下载转发微博Live Photo 0 = 不下载，1 = 下载
-    "not_downloaded_record": 0, // 媒体下载失败时是否写入失败记录 0 = 不记录（默认），1 = 记录（下载成功后的自动清理也随之关闭）
-    "not_downloaded_record_dir": "", // 下载失败记录位置：空或 media = 跟随媒体文件所在目录（默认）；report = output_directory/report；其他 = 自定义目录（相对 output_directory 或绝对路径）
-    "download_comment": 0, // 是否下载评论 0 = 不下载，1 = 下载
-    "comment_max_download_count": 100, // 单条微博最大评论下载数量， 仅当 download_comment = 1 时生效
-    "comment_pic_download": 0, // 是否下载评论图片 0 = 不下载，1 = 下载
-    "download_repost": 0, // 是否下载转发 0 = 不下载，1 = 下载
-    "repost_max_download_count": 100, // 单条微博最大转发下载数量， 仅当 download_repost = 1 时生效
-    "output_directory": "weibo_data", // 数据输出目录
-    "user_id_as_folder_name": 0, // 是否以用户ID作为子文件夹名称 0 = 否，1 = 是
-    "remove_html_tag": 1, // 是否移除微博内容中的HTML标签 0 = 否，1 = 是
-    "cookie": "YOUR_WEIBO_COOKIE_HERE",
-    // 微博Cookie（重要！）
-    // 登录微博后，在浏览器开发者工具中获取
-    // 格式：SCF=...; SUB=...; SUBP=...; ALF=...; SSOLoginState=...
-    "sqlite_db_path": "weibodata.db", // SQLite数据库文件路径，仅当 write_mode 包含 sqlite 时生效
-    "mysql_config": {
-        "host": "localhost",
-        "port": 3306,
-        "user": "root",
-        "password": "123456",
-        "charset": "utf8mb4"
-    },
-    // MySQL数据库配置（仅当 write_mode 包含 mysql 时需要）
-    "store_binary_in_sqlite": 0, // 是否在SQLite中存储二进制数据（图片、视频） 0 = 只存路径，1 = 存储二进制数据（文件会很大）
-    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
-    "post_config": {
-        "api_url": "https://api.example.com",
-        "api_token": ""
-    },
-    // MongoDB连接字符串（仅当 write_mode 包含 mongo 时需要）
-    "anti_ban_config": {
-        "enabled": true, // 是否启用反封禁机制
-        "max_weibo_per_session": 500, // 单次运行最大微博数量，达到此数量后自动暂停，防止一次性爬取过多
-        "batch_size": 50, // 批次大小，每爬取这么多条微博后，执行批次延迟
-        "batch_delay": 30, // 批次延迟时间（秒），每批次后的强制等待时间
-        "request_delay_min": 8, // 请求延迟最小值（秒）
-        "request_delay_max": 15, // 请求延迟最大值（秒）
-        "max_session_time": 600, // 最大单次运行时间（秒），达到此时间后强制休息
-        "max_api_errors": 5, // 最大API错误次数，达到此次数后强制休息
-        "rest_time_min": 180, // 休息时间最小值（秒），触发休息条件后暂停的时间
-        "random_rest_probability": 0.01, // 每次休息后，随机触发额外休息的概率
-        "user_agents": [
+
+    // ==================== 4. 媒体下载 ====================
+    "original_pic_download": 0,        // 0 = 不下载；1 = 下载
+    "retweet_pic_download": 0,         // 0 = 不下载；1 = 下载
+    "original_video_download": 0,      // 0 = 不下载；1 = 下载
+    "retweet_video_download": 0,       // 0 = 不下载；1 = 下载
+    "original_live_photo_download": 0, // 0 = 不下载；1 = 下载
+    "retweet_live_photo_download": 0,  // 0 = 不下载；1 = 下载
+    "not_downloaded_record": 0,        // 0 = 不记录；1 = 记录失败清单（下载成功后自动清理）
+    "not_downloaded_record_dir": "",   // 失败清单位置：空或 media = 跟随媒体目录；report = 报告目录；其他 = 自定义目录
+    "write_time_in_exif": 1,           // 0 = 不写入；1 = 把微博时间写入图片 EXIF
+    "change_file_time": 1,             // 0 = 不修改；1 = 把媒体文件时间改为微博发布时间
+
+    // ==================== 5. 评论下载 ====================
+    "download_comment": 0,                                 // 0 = 不下载；1 = 下载（含一级评论与二级回复）
+    "comment_max_download_count": 0,                       // 单条微博一级评论上限（条）；0 = 不限制
+    "comment_reply_max_download_count": 0,                 // 每条一级评论的回复上限（条）；0 = 不限制
+    "comment_pic_download": 0,                             // 0 = 不下载；1 = 下载
+    "comment_show_like_count": 0,                          // 0 = 不显示；1 = 显示
+    "comment_show_reply_target": 1,                        // 0 = 不显示；1 = 显示「回复 某人」
+    "comment_emoji_replace": 1,                            // 0 = 保留外链图片；1 = 替换为 [表情]
+    "comment_include_latest_stream": 0,                    // 0 = 不补充；1 = 用旧接口补「最新流」（字段少、请求多）
+    "comment_request_delay_min": 1,                        // 评论请求间隔下限（秒）
+    "comment_request_delay_max": 2,                        // 评论请求间隔上限（秒）
+    "comment_user_filter_file": "comment_user_filter.txt", // 评论者白名单文件：每行「微博账号 评论者1 评论者2 ...」（相对项目根）
+    // 内联评论者白名单（白名单文件不存在或为空时使用）：
+    // {"微博账号ID或昵称": ["评论者ID或昵称", ...]}
+    // 未列出的账号 = 不过滤
+    "comment_user_filter": {},
+    "comment_markdown_backup": 0,                          // 0 = 不备份；1 = 写评论块前备份原 md（每文件每次运行最多一份）
+
+    // ==================== 6. 转发下载 ====================
+    "download_repost": 0,             // 0 = 不下载；1 = 下载
+    "repost_max_download_count": 100, // 单条微博转发上限（条）
+
+    // ==================== 7. 报告与存档核对 ====================
+    "weibo_archive_check": 0,                 // 0 = 不生成；1 = 生成本轮存档核对报告（需 write_mode 含 markdown）
+    "weibo_archive_check_dir": "report",      // 本轮存档核对报告目录：相对 output_directory 或绝对路径
+    "weibo_archive_check_full": 0,            // 0 = 禁用；1 = 允许运行全量存档核对脚本 scripts/weibo_archive_check_full.py
+    "weibo_archive_check_full_dir": "report", // 全量存档核对报告目录：相对 output_directory 或绝对路径
+    "weibo_crawl_summary": 0,                 // 0 = 不生成；1 = 生成本轮抓取情况报告（需 write_mode 含 markdown）
+    "weibo_crawl_summary_dir": "report",      // 本轮抓取情况报告目录：相对 output_directory 或绝对路径
+    "weibo_media_check": 0,                   // 0 = 不生成；1 = 生成媒体完整性报告（需 write_mode 含 markdown）
+    "weibo_media_check_dir": "report",        // 媒体完整性报告目录：相对 output_directory 或绝对路径
+    "weibo_comment_summary": 0,               // 0 = 不生成；1 = 生成评论下载情况报告（需评论下载开启）
+    "weibo_comment_summary_dir": "report",    // 评论下载情况报告目录：相对 output_directory 或绝对路径
+    "weibo_comment_backfill": 0,              // 0 = 禁用；1 = 允许运行历史评论回填脚本 scripts/weibo_comment_backfill.py
+    "weibo_comment_backfill_dir": "report",   // 回填报告与进度目录：相对 output_directory 或绝对路径
+    "invisible_weibo_dirs": [                 // 已确认不可见的微博目录名列表（不参与核对，正常爬取也不写入）
+        "已不可见"
+    ],
+
+    // ==================== 8. 网络与 Cookie ====================
+    "cookie": "YOUR_WEIBO_COOKIE_HERE", // 微博 Cookie（必填）：SCF=...; SUB=...; SUBP=...
+    "anti_ban_config": {                // 反封禁与请求限速
+        "enabled": true,                 // true = 启用；false = 禁用
+        "max_weibo_per_session": 500,    // 单次运行最大微博数（条）
+        "batch_size": 50,                // 每批微博数（条）
+        "batch_delay": 30,               // 批次间隔（秒）
+        "request_delay_min": 8,          // 请求间隔下限（秒）
+        "request_delay_max": 15,         // 请求间隔上限（秒）
+        "max_session_time": 600,         // 单次运行最长时间（秒）
+        "max_api_errors": 5,             // 连续 API 错误上限（次）
+        "rest_time_min": 180,            // 触发休息时的最短休息时间（秒）
+        "random_rest_probability": 0.01, // 额外随机休息概率（0-1）
+        "user_agents": [                 // 随机 User-Agent 列表
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
             "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
             "Mozilla/5.0 (Linux; Android 14; SM-S9180) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.6367.113 Mobile Safari/537.36"
         ],
-        "accept_languages": [
+        "accept_languages": [            // 随机 Accept-Language 列表
             "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
             "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
             "zh-TW,zh;q=0.9,en;q=0.8"
         ],
-        "referer_list": [
+        "referer_list": [                // 随机 Referer 列表
             "https://m.weibo.cn/",
             "https://weibo.com/",
             "https://www.weibo.com/"
         ]
     },
-    "write_time_in_exif": 1, // 是否将微博发布时间写入EXIF
-    "change_file_time": 1 // 是否修改文件系统时间
+
+    // ==================== 9. 数据库与第三方服务（可选） ====================
+    "sqlite_db_path": "weibodata.db", // SQLite 文件路径（write_mode 含 sqlite 时生效）
+    "store_binary_in_sqlite": 0,      // SQLite 媒体存储：0 = 只存路径；1 = 存二进制（文件会很大）
+    "mysql_config": {                 // MySQL 连接（write_mode 含 mysql 时生效）
+        "host": "localhost",  // 主机地址
+        "port": 3306,         // 端口
+        "user": "root",       // 用户名
+        "password": "123456", // 密码
+        "charset": "utf8mb4"  // 字符集
+    },
+    // MongoDB 连接串（write_mode 含 mongo 时生效）
+    "mongodb_URI": "mongodb://[username:password@]host[:port][/[defaultauthdb][?options]]",
+    "post_config": {                  // POST 推送接口（write_mode 含 post 时生效）
+        "api_url": "https://api.example.com", // 接口地址
+        "api_token": ""                       // 接口令牌
+    }
 }

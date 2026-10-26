@@ -36,6 +36,8 @@ from util import archive_check_core
 from util import crawl_summary
 from util import media_check
 from util import media_report
+from util import comment_fetch
+from util import comment_markdown
 from util.dateutil import convert_to_days_ago
 from util.notify import push_deer
 from util.llm_analyzer import LLMAnalyzer  # 导入 LLM 分析器
@@ -119,6 +121,7 @@ class Weibo(object):
             "retweet_video_dir": "转发微博视频",
             "original_live_photo_dir": "原创微博Live Photo视频",
             "retweet_live_photo_dir": "转发微博Live Photo视频",
+            "comment_image_dir": "评论图片",
         }
         md_file_dir = config.get("markdown_file_dir", {})
         self.markdown_file_dir = {**default_md_dir, **md_file_dir} if isinstance(md_file_dir, dict) else default_md_dir
@@ -131,6 +134,7 @@ class Weibo(object):
             "retweet_video_folder": "转发微博视频",
             "original_live_photo_folder": "原创微博Live Photo视频",
             "retweet_live_photo_folder": "转发微博Live Photo视频",
+            "comment_image_folder": "评论图片",
         }
         dl_folder = config.get("download_folder_name", {})
         self.download_folder_name = {**default_dl_folder, **dl_folder} if isinstance(dl_folder, dict) else default_dl_folder
@@ -156,6 +160,29 @@ class Weibo(object):
             "comment_max_download_count"
         ]  # 如果设置了下评论，每条微博评论数会限制在这个值内
         self.comment_pic_download = config.get("comment_pic_download", 0)  # 1代表下载评论图片,0代表不下载
+        # 评论（含二级回复）相关配置，2026-10 新增
+        self.comment_reply_max_download_count = config.get(
+            "comment_reply_max_download_count", 0
+        )  # 每条一级评论最多抓多少条二级回复；0 = 不限制
+        self.comment_show_like_count = config.get("comment_show_like_count", 0)  # 是否显示点赞数
+        self.comment_show_reply_target = config.get("comment_show_reply_target", 1)  # 是否显示「回复 某人」
+        self.comment_emoji_replace = config.get("comment_emoji_replace", 1)  # 表情是否替换为 [表情]
+        self.comment_include_latest_stream = config.get(
+            "comment_include_latest_stream", 0
+        )  # 是否用旧接口补充「最新流」一级评论
+        self.comment_request_delay_min = config.get("comment_request_delay_min", 1.0)  # 评论请求间隔下限（秒）
+        self.comment_request_delay_max = config.get("comment_request_delay_max", 2.0)  # 评论请求间隔上限（秒）
+        self.comment_summary_enabled = config.get("weibo_comment_summary", 0)  # 是否生成评论下载情况报告
+        self.comment_summary_dir = config.get("weibo_comment_summary_dir", "report")  # 报告目录
+        # 按微博账号配置的评论者白名单：{微博账号ID或昵称: [评论者ID或昵称, ...]}
+        # 账号未配置或数组为空 = 不限制，保留全部评论。
+        # 优先读外部 txt（comment_user_filter_file），文件为空时用下面的内联配置。
+        self.comment_user_filter_file = config.get(
+            "comment_user_filter_file", "comment_user_filter.txt"
+        )
+        raw_user_filter = config.get("comment_user_filter", {})
+        self.comment_user_filter = raw_user_filter if isinstance(raw_user_filter, dict) else {}
+        self.comment_markdown_backup = config.get("comment_markdown_backup", 0)  # 写评论块前是否备份.md（默认不备份）
         self.download_repost = config["download_repost"]  # 1代表下载转发,0代表不下载
         self.repost_max_download_count = config[
             "repost_max_download_count"
@@ -551,12 +578,19 @@ class Weibo(object):
             "original_live_photo_download",
             "retweet_live_photo_download",
             "download_comment",
+            "comment_pic_download",
+            "comment_show_like_count",
+            "comment_show_reply_target",
+            "comment_emoji_replace",
+            "comment_include_latest_stream",
+            "comment_markdown_backup",
             "download_repost",
             "weibo_archive_check",
             "weibo_crawl_summary",
             "weibo_archive_check_full",
             "not_downloaded_record",
             "weibo_media_check",
+            "weibo_comment_summary",
         ]
         for argument in argument_list:
             # 使用 get() 获取值，新增字段默认为0
@@ -572,6 +606,7 @@ class Weibo(object):
             "weibo_archive_check_full_dir",
             "not_downloaded_record_dir",
             "weibo_media_check_dir",
+            "weibo_comment_summary_dir",
         ):
             value = config.get(argument, "")
             if not isinstance(value, str):
@@ -652,6 +687,7 @@ class Weibo(object):
                 "original_image_dir", "retweet_image_dir",
                 "original_video_dir", "retweet_video_dir",
                 "original_live_photo_dir", "retweet_live_photo_dir",
+                "comment_image_dir",
             ]
             for key in md_file_dir:
                 if key not in valid_md_dir_keys:
@@ -665,6 +701,7 @@ class Weibo(object):
                 "original_image_folder", "retweet_image_folder",
                 "original_video_folder", "retweet_video_folder",
                 "original_live_photo_folder", "retweet_live_photo_folder",
+                "comment_image_folder",
             ]
             for key in dl_folder:
                 if key not in valid_dl_keys:
@@ -705,6 +742,57 @@ class Weibo(object):
         elif comment_max_count < 0:
             logger.warning("最大下载评论数 (comment_max_download_count) 应该为正整数")
             sys.exit()
+
+        # 二级回复上限与评论请求间隔（2026-10 新增）
+        comment_reply_max_count = config.get("comment_reply_max_download_count", 0)
+        if not isinstance(comment_reply_max_count, int):
+            logger.warning("每条评论最大回复数 (comment_reply_max_download_count) 应为整数类型")
+            sys.exit()
+        elif comment_reply_max_count < 0:
+            logger.warning("每条评论最大回复数 (comment_reply_max_download_count) 不能为负数")
+            sys.exit()
+        for delay_key in ("comment_request_delay_min", "comment_request_delay_max"):
+            delay_value = config.get(delay_key, 0)
+            if isinstance(delay_value, bool) or not isinstance(delay_value, (int, float)):
+                logger.warning("%s 应为数字（秒）", delay_key)
+                sys.exit()
+            if delay_value < 0:
+                logger.warning("%s 不能为负数", delay_key)
+                sys.exit()
+        if config.get("comment_request_delay_min", 0) > config.get(
+            "comment_request_delay_max", 0
+        ):
+            logger.warning(
+                "comment_request_delay_min 不能大于 comment_request_delay_max"
+            )
+            sys.exit()
+
+        # 评论者白名单：{微博账号: [评论者ID或昵称, ...]}
+        comment_user_filter_file = config.get(
+            "comment_user_filter_file", "comment_user_filter.txt"
+        )
+        if not isinstance(comment_user_filter_file, str):
+            logger.warning(
+                "comment_user_filter_file 应为文件路径字符串（如 comment_user_filter.txt）"
+            )
+            sys.exit()
+        comment_user_filter = config.get("comment_user_filter", {})
+        if not isinstance(comment_user_filter, dict):
+            logger.warning(
+                "comment_user_filter 应为对象：{微博账号: [评论者ID或昵称, ...]}"
+            )
+            sys.exit()
+        for account_key, allowed_users in comment_user_filter.items():
+            if not isinstance(allowed_users, list):
+                logger.warning("comment_user_filter.%s 应为数组", account_key)
+                sys.exit()
+            for user_item in allowed_users:
+                if isinstance(user_item, bool) or not isinstance(user_item, (str, int)):
+                    logger.warning(
+                        "comment_user_filter.%s 的元素应为用户ID或昵称（字符串/数字）",
+                        account_key,
+                    )
+                    sys.exit()
 
         repost_max_count = config["repost_max_download_count"]
         if not isinstance(repost_max_count, int):
@@ -3356,6 +3444,269 @@ class Weibo(object):
 
         logger.info("%d条微博写入markdown文件完毕", self.got_count - wrote_count)
 
+    def _load_comment_user_filter(self):
+        """加载评论者白名单：外部 txt 优先，文件不存在或为空时回退 config 内联配置。
+
+        文件路径相对项目根目录（与 config.json 同级）；格式见
+        ``comment_user_filter.txt.example``：每行「微博账号 评论者1 评论者2 ...」。
+        """
+        cached = getattr(self, "_comment_user_filter_cache", None)
+        if cached is not None:
+            return cached
+        mapping: dict[str, set[str]] = {}
+        file_name = str(getattr(self, "comment_user_filter_file", "") or "").strip()
+        if file_name:
+            path = file_name
+            if not os.path.isabs(path):
+                path = os.path.join(
+                    os.path.dirname(os.path.realpath(__file__)), path
+                )
+            mapping = comment_fetch.parse_user_filter_file(path)
+            if mapping:
+                logger.info(
+                    "评论者白名单：从文件 %s 加载 %d 个账号", path, len(mapping)
+                )
+        if not mapping:
+            raw = getattr(self, "comment_user_filter", None)
+            if isinstance(raw, dict) and raw:
+                for account_key, allowed_users in raw.items():
+                    if not isinstance(allowed_users, (list, tuple)):
+                        continue
+                    allowed = {
+                        str(item).strip()
+                        for item in allowed_users
+                        if str(item).strip()
+                    }
+                    key_text = str(account_key).strip()
+                    if key_text and allowed:
+                        mapping[key_text] = allowed
+                if mapping:
+                    logger.info(
+                        "评论者白名单：使用 config 内联配置，%d 个账号", len(mapping)
+                    )
+        self._comment_user_filter_cache = mapping
+        return mapping
+
+    def _comment_allowed_users(self):
+        """返回当前微博账号配置的评论者白名单；未配置或配置为空时返回 None。
+
+        账号不在白名单中、或该账号的白名单为空，都表示不限制（保留全部评论）。
+        """
+        conf = self._load_comment_user_filter()
+        if not conf:
+            return None
+        user_id = str(self.user_config.get("user_id") or "").strip()
+        screen_name = str(self.user.get("screen_name") or "").strip()
+        for account_key, allowed_users in conf.items():
+            key_text = str(account_key).strip()
+            if not key_text or key_text not in {user_id, screen_name}:
+                continue
+            if isinstance(allowed_users, (set, list, tuple)):
+                allowed = {
+                    str(item).strip() for item in allowed_users if str(item).strip()
+                }
+                if allowed:
+                    return allowed
+            return None
+        return None
+
+    def write_markdown_comments_for_new_weibo(self):
+        """对本轮新写入 Markdown 的微博抓取评论（含二级回复）并写回对应微博块。
+
+        只在 download_comment=1 且 write_mode 含 markdown 时执行，只处理本轮
+        真正新增写入 Markdown 的微博（self.new_written_weibo）；单条微博失败
+        只记日志与报告，不阻断主流程。
+        """
+        if not getattr(self, "download_comment", 0):
+            return
+        if "markdown" not in self.write_mode:
+            return
+        written = getattr(self, "new_written_weibo", None) or {}
+        if not written:
+            logger.info("本轮没有新写入 Markdown 的微博，跳过评论抓取")
+            return
+
+        allowed_users = self._comment_allowed_users()
+        if allowed_users:
+            logger.info("评论抓取已启用评论者白名单：%d 个评论者", len(allowed_users))
+        logger.info("开始抓取评论并写入 Markdown：%d 条新微博", len(written))
+        options = comment_fetch.FetchOptions(
+            max_root=int(getattr(self, "comment_max_download_count", 0) or 0),
+            max_reply=int(getattr(self, "comment_reply_max_download_count", 0) or 0),
+            delay_min=float(getattr(self, "comment_request_delay_min", 1.0) or 0),
+            delay_max=float(getattr(self, "comment_request_delay_max", 2.0) or 0),
+            include_latest=bool(getattr(self, "comment_include_latest_stream", 0)),
+            emoji_replace=bool(getattr(self, "comment_emoji_replace", 1)),
+        )
+        render_options = comment_markdown.RenderOptions(
+            show_like_count=bool(getattr(self, "comment_show_like_count", 0)),
+            show_reply_target=bool(getattr(self, "comment_show_reply_target", 1)),
+            image_dir=self.markdown_file_dir.get("comment_image_dir", "评论图片"),
+        )
+
+        results = []
+        backed_up_files: set[str] = set()
+        for weibo_id, md_path in list(written.items()):
+            record = {
+                "weibo_id": weibo_id,
+                "md_path": md_path,
+                "status": "",
+                "total_number": 0,
+                "roots": 0,
+                "replies": 0,
+                "requests": 0,
+                "errors": 0,
+                "note": "",
+            }
+            try:
+                if not os.path.isfile(md_path):
+                    record.update(status="跳过", note="Markdown 文件不存在")
+                    results.append(record)
+                    continue
+                result = comment_fetch.fetch_comments(
+                    self.session, self.headers, weibo_id, options
+                )
+                if allowed_users:
+                    result = comment_fetch.filter_comments(result, allowed_users)
+                record["filtered_users"] = len(allowed_users) if allowed_users else 0
+                record["total_number"] = result.total_number
+                record["roots"] = len(result.roots)
+                record["replies"] = result.stats.replies_fetched
+                record["requests"] = result.stats.requests
+                record["errors"] = result.stats.errors
+                if not result.roots:
+                    note = "接口未返回评论"
+                    if allowed_users:
+                        note = "按评论者白名单过滤后无内容"
+                    record.update(status="无评论", note=note)
+                    results.append(record)
+                    continue
+                if getattr(self, "comment_pic_download", 0):
+                    self._download_comment_images(result, md_path)
+                block = comment_markdown.render_comment_block(
+                    weibo_id,
+                    result.roots,
+                    total_number=result.total_number,
+                    options=render_options,
+                )
+                changed = comment_markdown.update_markdown_file(
+                    md_path,
+                    weibo_id,
+                    block,
+                    backup=bool(getattr(self, "comment_markdown_backup", 0)),
+                    backup_state=backed_up_files,
+                )
+                record.update(
+                    status="已写入" if changed else "未变化",
+                    note="停止原因: %s" % (result.stats.stopped_reason or "未知"),
+                )
+            except Exception as e:
+                logger.exception("抓取/写入评论失败 微博id:%s", weibo_id)
+                record.update(status="失败", note="%s: %s" % (type(e).__name__, e))
+            results.append(record)
+
+        written_count = sum(1 for item in results if item["status"] == "已写入")
+        logger.info(
+            "评论写入 Markdown 完毕：%d 条微博已写入，%d 条无评论/跳过/失败",
+            written_count,
+            len(results) - written_count,
+        )
+        if getattr(self, "comment_summary_enabled", 0):
+            self.generate_comment_summary_report(results)
+
+    def _download_comment_images(self, result, md_path):
+        """下载评论图片到 md 同级的「评论图片」目录，并把本地文件名写回评论对象。"""
+        image_dir = os.path.join(
+            os.path.dirname(md_path),
+            self.markdown_file_dir.get("comment_image_dir", "评论图片"),
+        )
+        os.makedirs(image_dir, exist_ok=True)
+        comments = []
+        for root in result.roots:
+            comments.append(root)
+            comments.extend(root.replies)
+        for comment in comments:
+            if not comment.pic_url:
+                continue
+            stamp = (comment.created_at or "unknown").replace(" ", "_").replace(":", "-")
+            file_name = "%s_%s.jpg" % (stamp, comment.id)
+            saved_path = self.download_one_file(
+                comment.pic_url,
+                os.path.join(image_dir, file_name),
+                "img",
+                comment.weibo_id,
+                comment.created_at or "",
+            )
+            if saved_path:
+                comment.pic_file = os.path.basename(saved_path)
+
+    def generate_comment_summary_report(self, results):
+        """生成评论下载情况报告（每账号每轮一份）。"""
+        if not results:
+            return
+        try:
+            base_dir = self._report_output_dir(
+                getattr(self, "comment_summary_dir", "report")
+            )
+            user_id = str(self.user_config.get("user_id", "unknown"))
+            screen_name = str(self.user.get("screen_name") or user_id)
+            safe_screen_name = re.sub(r'[\\/:*?"<>|]', "_", screen_name)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            report_path = os.path.join(
+                base_dir,
+                "weibo_comment_summary_%s_%s_%s.txt"
+                % (user_id, safe_screen_name, timestamp),
+            )
+            if not os.path.isdir(base_dir):
+                os.makedirs(base_dir)
+
+            written = sum(1 for item in results if item["status"] == "已写入")
+            failed = sum(1 for item in results if item["status"] == "失败")
+            roots = sum(item["roots"] for item in results)
+            replies = sum(item["replies"] for item in results)
+            requests_total = sum(item["requests"] for item in results)
+            errors = sum(item["errors"] for item in results)
+
+            lines = [
+                "评论下载情况报告",
+                "生成时间: %s" % datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "账号: %s（%s）" % (screen_name, user_id),
+                "本轮新写入 Markdown 的微博数: %d" % len(results),
+                "已写入评论块的微博数: %d" % written,
+                "失败微博数: %d" % failed,
+                "已存档评论: %d 条一级 + %d 条二级回复" % (roots, replies),
+                "评论请求总数: %d，请求错误数: %d" % (requests_total, errors),
+                "评论者白名单过滤: %s"
+                % (
+                    "已启用"
+                    if any(item.get("filtered_users") for item in results)
+                    else "未启用"
+                ),
+                "说明: 微博评论接口有上限，已存档条数可能少于微博显示的评论总数；"
+                "评论块的份量与边界见「口径与叫法」。",
+                "-" * 60,
+            ]
+            for item in results:
+                lines.append(
+                    "微博id: %s | 状态: %s | 已存档: %d 条一级 + %d 条回复 | "
+                    "评论总数: %d | 请求: %d | 错误: %d | %s"
+                    % (
+                        item["weibo_id"],
+                        item["status"],
+                        item["roots"],
+                        item["replies"],
+                        item["total_number"],
+                        item["requests"],
+                        item["errors"],
+                        item["note"],
+                    )
+                )
+            with open(report_path, "w", encoding="utf-8") as handle:
+                handle.write("\n".join(lines) + "\n")
+            logger.info("评论下载情况报告已生成: %s", report_path)
+        except Exception as e:
+            logger.exception(e)
+
     def group_weibo_by_config(self, wrote_count):
         """按配置分组微博"""
         weibo_by_group = {}
@@ -4260,6 +4611,13 @@ class Weibo(object):
             with open(md_file_path, "w", encoding="utf-8") as f:
                 f.write(final_content)
             logger.info(f"Markdown文件已更新: {md_file_path}，新增 {len(new_weibo_list)} 条微博")
+            # 记录本轮新写入的微博，供 get_pages 结束后抓评论并回填
+            if getattr(self, "new_written_weibo", None) is None:
+                self.new_written_weibo = {}
+            for written_weibo in new_weibo_list:
+                written_id = str(written_weibo.get("id") or "")
+                if written_id:
+                    self.new_written_weibo[written_id] = md_file_path
         except Exception as e:
             logger.error(f"生成Markdown文件失败: {e}")
 
@@ -4475,6 +4833,8 @@ class Weibo(object):
         self.user_config = user_config
         self.got_count = 0
         self.weibo_id_list = []
+        # 本轮真正新写入 Markdown 的微博：weibo_id -> md 路径，供评论回填使用
+        self.new_written_weibo = {}
 
     def save_cookies_to_file(self):
         """将 Session 中最新的 Cookie 写回文件"""
@@ -4534,6 +4894,9 @@ class Weibo(object):
                     self.crawled_ids_this_run.update(
                         str(w.get("id")) for w in self.weibo if w.get("id")
                     )
+
+                # 评论写入 Markdown：对本轮新写入的微博抓评论（含二级回复）并回填对应微博块
+                self.write_markdown_comments_for_new_weibo()
 
                 # 当前用户所有微博和评论抓取完毕后，再导出该用户的评论 CSV
                 self.export_comments_to_csv_for_current_user()

@@ -9,6 +9,7 @@ import sys
 import types
 import unittest
 from datetime import datetime
+from pathlib import Path
 
 
 def _install_import_stubs() -> None:
@@ -33,6 +34,10 @@ def _install_import_stubs() -> None:
 
 
 _install_import_stubs()
+
+_SCRIPT_DIR = str(Path(__file__).resolve().parents[1] / "scripts")
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
 import weibo_archive_check_full  # noqa: E402
 

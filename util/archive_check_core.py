@@ -1,6 +1,6 @@
 """存档核对公共核心：本地存档与平台名单的双向差集 + 统一报告渲染。
 
-本轮存档核对（weibo.py）与全量存档核对（weibo_archive_check_full.py）共用本模块，
+本轮存档核对（weibo.py）与全量存档核对（scripts/weibo_archive_check_full.py）共用本模块，
 保证两者的比对逻辑、边界与报告格式完全一致；两个入口只负责「取哪份数据、算哪个范围」。
 """
 

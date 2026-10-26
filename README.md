@@ -35,15 +35,37 @@
 * 下载用户**转发**微博中的**视频**（可选）
 * 下载用户**原创**微博**Live Photo**中的**视频**（可选）
 * 下载用户**转发**微博**Live Photo**中的**视频**（可选）
-* 下载用户**原创和转发**微博下的一级评论（可选）
+* 下载用户**原创和转发**微博下的评论（含一级评论与二级回复；可选），开启 markdown 时可写入对应微博块
 * 下载用户**原创和转发**微博下的转发（可选）
 * 爬取结束后自动执行**本轮存档核对**（可选，需开启markdown存档），提示本轮未抓到的已存档微博与已抓到但未保存到本地的微博
 * 爬取结束后自动生成**本轮抓取情况报告**（可选，需开启markdown存档）：每个账号一份 txt，记录本轮抓到多少条、其中已抓取过多少条、新抓到多少条，以及新抓到微博的 ID 和日期
 * 爬取结束后自动执行**媒体完整性检查**（可选，需开启markdown存档）：检查 markdown 引用的本地图片/视频/Live Photo 是否存在、为空或明显损坏
 * 使用独立脚本执行**全量存档核对**（可选，只读），枚举平台完整时间线做双向比对，列出两类名单
+* 使用独立脚本执行**历史评论回填**（可选），对已存档 markdown 微博逐条抓评论并写回对应微博块，支持分批、断点续跑与 dry-run
 * 启动时自动兼容旧配置键（如 `missing_weibo_report` → `weibo_archive_check`）；**升级代码后请手动在命令行运行 `python weibo.py --update-config`** 把兼容结果写回 `config.json`（自动备份，并尽量保留原有注释与排版），想先看差异可运行 `python weibo.py --check-config`
 
 如果你只对用户信息感兴趣，而不需要爬用户的微博，也可以通过设置实现只爬取微博用户信息的功能。程序也可以实现**爬取结果自动更新**，即：现在爬取了目标用户的微博，几天之后，目标用户可能又发新微博了。通过设置，可以实现每隔几天**增量爬取**用户这几天发的新微博。具体方法见[定期自动爬取微博](#7定期自动爬取微博可选)。
+
+## 目录结构
+
+```
+weibo-crawler/
+├── weibo.py                        # 主入口：爬取微博
+├── __main__.py                     # 入口：按固定间隔循环运行
+├── service.py                      # 入口：HTTP 服务（可选）
+├── const.py                        # 运行模式等常量
+├── config.json.example             # 配置模板（复制为 config.json 后填写）
+├── comment_user_filter.txt.example # 评论者白名单模板
+├── logging.conf / requirements.txt
+├── scripts/                        # 辅助脚本（手动运行）
+│   ├── weibo_archive_check_full.py # 全量存档核对（只读）
+│   └── weibo_comment_backfill.py   # 历史评论回填
+├── docs/                           # 文档（API 说明）
+├── util/                           # 功能模块
+├── tests/                          # 单元测试
+├── log/                            # 运行日志（自动生成）
+└── Output/                         # 本地文档（不提交）
+```
 
 ## 输出
 
@@ -95,7 +117,10 @@
 * 存档核对报告：开启 `weibo_archive_check` 后，每次爬取结束会在 `output_directory/report/` 生成 `weibo_archive_check_<用户ID>_<昵称>_<时间>.txt`，每条记录包含微博链接、发布日期、本地文件路径；**即使无差异也会生成**，报告里标注「核对结果: 无差异」；
 * 抓取情况报告：开启 `weibo_crawl_summary` 后，每次爬取顺利完成会在 `output_directory/report/` 为每个账号生成 `weibo_crawl_summary_<用户ID>_<昵称>_<时间>.txt`，记录本轮抓到微博数、其中已抓取过与新抓到的数量，以及新抓到微博的 ID、发布日期与链接；
 * 媒体完整性报告：开启 `weibo_media_check` 后，每次爬取结束会在 `output_directory/report/` 为每个账号生成 `weibo_media_check_<用户ID>_<昵称>_<时间>.txt`，列出 markdown 引用的本地媒体中「缺失 / 空文件 / 损坏或异常」的清单；
-* 全量存档核对报告：运行 `weibo_archive_check_full.py` 后，在 `output_directory/report/` 生成 `weibo_archive_check_full_<用户ID>_<昵称>_<时间>.txt`，列出「本轮未抓到的已存档微博」与「未保存的微博」两类名单。
+* 全量存档核对报告：运行 `scripts/weibo_archive_check_full.py` 后，在 `output_directory/report/` 生成 `weibo_archive_check_full_<用户ID>_<昵称>_<时间>.txt`，列出「本轮未抓到的已存档微博」与「未保存的微博」两类名单。
+* 评论块：开启 `download_comment` 且 `write_mode` 含 `markdown` 时，本轮新写入 Markdown 的微博会**在该微博块内、`---` 分隔线之前**写入评论块：`#### 评论` 标题 + 评论标记（`<!-- comments: 微博ID total=… saved=… -->`）；正文中一级评论用引用块（`> **用户名** · 时间` + `> 正文`）、二级回复用嵌套引用（`> >`），一级与二级均按时间升序；一级之间、正文与二级之间用单独一行 `>` 分隔。评论标记与 `<!-- /comments -->` 在 Obsidian/普通 Markdown 中不显示。
+* 评论下载情况报告：开启 `weibo_comment_summary` 后，每次爬取结束在 `output_directory/report/` 为每个账号生成 `weibo_comment_summary_<用户ID>_<昵称>_<时间>.txt`，记录本轮新微博的评论抓取条数、请求数与失败数。
+* 评论回填报告与进度：运行 `scripts/weibo_comment_backfill.py` 后，在 `weibo_comment_backfill_dir`（默认 `output_directory/report/`）生成 `weibo_comment_backfill_<时间>.txt` 与 `comment_backfill_progress_<用户>.json`。
 
 ## 实例
 
@@ -453,7 +478,7 @@ weibo_media_check_dir控制媒体完整性报告的输出目录，默认值为 "
 
 **设置weibo_archive_check_full**
 
-weibo_archive_check_full控制是否允许运行全量存档核对脚本 `weibo_archive_check_full.py`，值为1代表允许，值为0代表禁用（脚本会直接退出并提示），默认值为0。该开关只影响手动运行的全量核对脚本，不影响每次爬取结束后的本轮存档核对。
+weibo_archive_check_full控制是否允许运行全量存档核对脚本 `scripts/weibo_archive_check_full.py`，值为1代表允许，值为0代表禁用（脚本会直接退出并提示），默认值为0。该开关只影响手动运行的全量核对脚本，不影响每次爬取结束后的本轮存档核对。
 
 ```
 "weibo_archive_check_full": 1,
@@ -570,7 +595,7 @@ user_id_as_folder_name控制结果文件的目录名，可取值为0和1，默�
 
 **设置download_comment**
 
-download_comment控制是否下载每条微博下的一级评论（不包括对评论的评论），仅当write_mode中有sqlite时有效，可取值为0和1，默认为1：
+download_comment控制是否下载每条微博下的评论（含一级评论与二级回复；微博评论实际只有两层，接口把二级回复平铺返回）。`write_mode` 含 `sqlite` 时写入 SQLite 与评论 CSV（原有行为）；含 `markdown` 时把评论写入对应微博块。可取值为0和1，默认为0：
 
 ```
 "download_comment": 1,
@@ -580,11 +605,77 @@ download_comment控制是否下载每条微博下的一级评论（不包括对�
 
 **设置comment_max_download_count**
 
-comment_max_download_count控制下载评论的最大数量，仅当write_mode中有sqlite时有效，默认为1000：
+comment_max_download_count控制单条微博最多抓取多少条一级评论，仅当 `download_comment = 1` 时生效；取值为非负整数，0 表示不限制（翻到接口结束），默认为0。
 
 ```
-"comment_max_download_count": 1000,
+"comment_max_download_count": 0,
 ```
+
+注意：微博评论接口有上限，实测一条评论数 10344 的微博，热门流最多约 16 页/255 条，之后的评论接口不再返回。
+
+**设置comment_reply_max_download_count**
+
+comment_reply_max_download_count控制每条一级评论最多抓取多少条二级回复，0 表示不限制，默认为0。
+
+```
+"comment_reply_max_download_count": 0,
+```
+
+实测单条一级评论的回复约 80～85 条后接口提前结束（即使页面显示数百条回复）。
+
+**设置comment_pic_download**
+
+comment_pic_download控制是否下载评论图片，默认为0（不下载）。开启且 `write_mode` 含 markdown 时，图片下载到 md 同级的「评论图片」目录，并在评论块中以 `![评论图片](评论图片/文件名)` 引用。
+
+**设置comment_show_like_count / comment_show_reply_target / comment_emoji_replace**
+
+三个展示开关，只在写 Markdown 评论块时生效：comment_show_like_count 控制是否显示点赞数（默认0，不显示）；comment_show_reply_target 控制二级回复是否显示「回复 某人」（默认1，显示）；comment_emoji_replace 控制表情是否统一替换为 `[表情]`（默认1，替换）。
+
+**设置comment_include_latest_stream**
+
+comment_include_latest_stream控制是否用旧接口 `api/comments/show` 补充「最新流」一级评论，默认0（不补充）。开启后能多拿到一批最新评论（实测约 360 条，与热门流基本不重合），但字段较少（无图片/表情/楼层）、请求更多（最多约 50 页）。
+
+**设置comment_request_delay_min / comment_request_delay_max**
+
+评论请求间隔（秒），逐页随机取值，默认1～2秒。该间隔与微博抓取的 `anti_ban_config` 分开设置，避免把 8～15 秒的微博延迟套到评论请求上。
+
+**设置weibo_comment_summary / weibo_comment_summary_dir**
+
+weibo_comment_summary控制每次爬取结束后是否为每个账号生成**评论下载情况报告**，默认0（不生成）；需要 `download_comment = 1` 且 `write_mode` 含 markdown。weibo_comment_summary_dir为报告目录（默认 "report"，相对 output_directory，也可填绝对路径）。
+
+**设置weibo_comment_backfill / weibo_comment_backfill_dir**
+
+weibo_comment_backfill控制是否允许运行**历史评论回填脚本** `scripts/weibo_comment_backfill.py`，默认0（禁用）；weibo_comment_backfill_dir为回填报告与进度文件目录（默认 "report"，相对 output_directory）。
+
+历史评论回填用法（在项目根目录执行）：
+
+```
+python scripts/weibo_comment_backfill.py --dry-run                 # 只看将处理多少条微博
+python scripts/weibo_comment_backfill.py --max-weibo 20            # 先小批试跑
+python scripts/weibo_comment_backfill.py                           # 全量回填（默认全量）
+python scripts/weibo_comment_backfill.py --users 用户A --since 2026-01-01
+```
+
+脚本分批执行（默认每批 50 条微博、批间休息 60 秒），进度写入 `weibo_comment_backfill_dir` 下的 `comment_backfill_progress_<用户>.json`；中断后直接重跑即可续跑（加 `--force` 可重抓已处理项，`--no-resume` 从头开始）。回填会原地修改 md 文件；默认不生成 `.bak` 备份，需要回滚保护时把 `comment_markdown_backup` 设为 1。
+
+**设置comment_markdown_backup**
+
+comment_markdown_backup控制写评论块前是否把原 md 备份为 `<文件名>.bak.<时间戳>`，默认0（不备份）。需要回滚保护时设为1；同一次运行内同一个文件只备份一次。回填脚本单次也可用 `--no-backup` 关闭。已生成的备份可用 `python scripts/weibo_comment_backfill.py --clean-backups` 清理（加 `--dry-run` 先预览），只删除 `*.md.bak.<时间戳>` 这种命名。
+
+**设置comment_user_filter_file / comment_user_filter**
+
+按微博账号配置评论者白名单：只保留指定评论者发的评论/回复（主流程与回填脚本都生效，过滤在抓取完成后进行，请求量不变）。
+
+推荐放在项目根目录的外部 txt 文件里（`comment_user_filter_file` 指定，默认 `comment_user_filter.txt`，格式同 `user_id_list.txt` 风格）：
+
+```
+# 每行：<微博账号ID或昵称> <评论者1> [评论者2] ...
+# 空格或制表符分隔；# 开头为注释；空行忽略
+1234567890 1111111111 2222222222
+1234567891 3333333333
+```
+
+规则：账号未出现在文件里 = 不过滤；评论作者在白名单内的一级评论/二级回复保留；一级评论作者不在白名单但其下有白名单回复时，该一级评论作为上下文保留；过滤后整条微博没有符合内容时不写评论块。文件不存在或解析为空时，回退使用 config 里的内联 `comment_user_filter`（`{"微博账号": ["评论者", ...]}`）。示例文件见 `comment_user_filter.txt.example`。
 
 **设置download_repost**
 
@@ -786,10 +877,10 @@ python weibo.py --update-config
 需要全量核对存档（只读，枚举平台完整时间线）时，运行独立脚本：
 
 ```bash
-python weibo_archive_check_full.py
+python scripts/weibo_archive_check_full.py
 ```
 
-运行 `python weibo_archive_check_full.py --help` 可查看参数（`--users`、`--since`、`--max-pages`）；该脚本受配置项 `weibo_archive_check_full` 控制（默认 0；设为 1 才能运行）。报告输出目录由 `weibo_archive_check_full_dir` 控制（默认 `output_directory/report`）。
+运行 `python scripts/weibo_archive_check_full.py --help` 可查看参数（`--users`、`--since`、`--max-pages`）；该脚本受配置项 `weibo_archive_check_full` 控制（默认 0；设为 1 才能运行）。报告输出目录由 `weibo_archive_check_full_dir` 控制（默认 `output_directory/report`）。
 
 ### 6.按需求修改脚本（可选）
 
@@ -1108,4 +1199,4 @@ services:
 
 根目录下service.py提供了一个简单的restful api示例，运行`python service.py`启动服务后可以通过http请求定时更新以及查询微博
 
-文档参考[API说明](./API.md)
+文档参考[API说明](./docs/API.md)
