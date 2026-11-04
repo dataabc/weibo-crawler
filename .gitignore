@@ -9,14 +9,17 @@
 weibo_data/
 # 旧版默认输出目录名
 weibo/
-# 自定义为 report 时的输出目录
-report/
+# 自定义为 report 时的输出目录（只匹配根目录；写成 report/ 会误伤 util/report/ 源码）
+/report/
 # 运行日志
 log/
 # 下载失败清单
 not_downloaded.txt
 # 评论回填进度文件（自定义输出目录时可能出现在根目录）
 comment_backfill_progress_*.json
+# 主爬/回填并发锁（放在 output_directory 根，自定义目录时可能不在忽略范围内）
+.weibo_crawler.lock
+*.corrupt.*
 
 # ---------- 配置与凭据（敏感，勿提交） ----------
 # 实际配置（含 Cookie、账号）；模板 config.json.example 需要提交

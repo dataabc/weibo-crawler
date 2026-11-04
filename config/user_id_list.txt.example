@@ -1,0 +1,10 @@
+# 微博用户列表（配置相关文件统一放 config/ 目录）
+# 每行格式：user_id [昵称] [since_date] [query_list]
+#   - 昵称：可省略，仅作注释/便于辨认
+#   - since_date：该用户单独的起始日期（早于 config.json 的 since_date 时生效）
+#   - query_list：关键词过滤（逗号分隔），省略 = 抓取全部
+# 文件路径在 config/config.json 的 "user_id_list" 中指定（默认 "config/user_id_list.txt"）
+#
+# 示例：
+# 1000000005 示例用户 2024-01-01
+# 1000000004 示例用户2 3 梦想,希望

@@ -1,10 +1,16 @@
+# 运行时核心依赖（2026-10-31 拆分）。
+#
+# 安装：pip install -r requirements.txt
+#
+# 说明：
+# - 这里只保留「抓取 + 存档 + 报告」主流程需要的依赖；
+# - 已归档的 MySQL / MongoDB 后端与 Flask API 依赖移到 requirements-legacy.txt；
+# - 开发/静态检查工具在 requirements-dev.txt；
+# - Python 版本要求：>= 3.10（CI 覆盖 3.10/3.11/3.12/3.13）。
+
 lxml==6.1.0
-pymongo==4.6.3
-PyMySQL==1.1.1
-Requests==2.33.0
-schedule==1.2.1
-tqdm==4.66.3
-requests>=2.31.0
+requests==2.33.0
 json5>=0.9.25
+tqdm==4.66.3
 piexif~=1.1.3
-Flask==3.1.3
+schedule==1.2.1

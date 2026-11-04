@@ -1,0 +1,22 @@
+# Docker Compose 配置（2026-10-31 修正路径，未验证）。
+#
+# 用法（在 deploy/ 目录下）：
+#   docker compose up -d --build
+#
+# 修正点：
+# - build context 由 deploy/ 改为仓库根（否则 COPY requirements.txt 找不到文件）；
+# - volume 路径改为相对仓库根（../config、../weibo_data），与当前默认
+#   output_directory="weibo_data" 一致（旧版写的是 ./weibo）。
+# 注意：config/config.json 需先在宿主机准备好（见 config/config.json.example）。
+services:
+  weibo-crawler:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: weibo-crawler:local
+    restart: always  # 容器退出后总是重启
+    volumes:
+      - ../config/config.json:/app/config/config.json:ro
+      - ../weibo_data:/app/weibo_data
+    environment:
+      - schedule_interval=1  # 循环间隔（分钟）
