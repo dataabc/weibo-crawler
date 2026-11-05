@@ -1,0 +1,95 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install coverage
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install coverage
+      - name: Run unit tests with coverage
+        run: coverage run -m unittest discover -s tests
+      - name: Coverage report (report-only, no threshold)
+        run: coverage report -m
+      - name: Coverage XML
+        run: coverage xml
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-py${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: warn
+
+  lint:
+    # 2026-10-29 新增、2026-10-31 扩至 pyflakes 全规则（F）：未定义名、未用 import、
+    # 未用变量、重复定义等确定性错误。2026-10-27 的重构事故本可由这一步拦住。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ruff
+      - name: Ruff check
+        run: ruff check .
+
+  install-smoke:
+    # 2026-10-29 新增：装真实依赖后验证 import 接线（不再依赖测试里的 stub）。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Import smoke (real dependencies, no stubs)
+        run: |
+          python -c "import weibo"
+          python -c "from util.config import config_loader"
+          python -c "from util.fetch import fetch_pages, user_info, weibo_parse"
+          python -c "from util.media import media_download, media_jobs"
+      - name: Entry-point smoke (__main__.py 作为模块加载)
+        run: |
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location("weibo_crawler_main", "./__main__.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          assert callable(module.main)
+          print("__main__.py import OK")
+          PY
+
+  export-check:
+    # 2026-10-29 新增：验证「git 里的代码是完整的」。
+    # 2026-10-29 曾发现 .gitignore 的 `report/` 误伤 util/report/，5 个源文件从未
+    # 入库；本地测试全绿，但干净导出后 import 直接失败。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Export HEAD and run tests outside the working tree
+        run: |
+          mkdir -p "$RUNNER_TEMP/export"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/export"
+          cd "$RUNNER_TEMP/export"
+          python -m unittest discover -s tests

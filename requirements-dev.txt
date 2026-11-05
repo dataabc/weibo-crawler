@@ -1,0 +1,11 @@
+# 开发与静态检查依赖（2026-10-31 新增）。
+#
+# 安装：pip install -r requirements-dev.txt
+# 启用提交前钩子：pre-commit install
+#
+# 说明：单元测试本身不需要第三方依赖（测试内自带 stub），
+#       这些工具只在本地开发、提交门禁与 CI 中使用。
+
+ruff>=0.6
+pre-commit>=3.7
+coverage>=7.6

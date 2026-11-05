@@ -1,0 +1,14 @@
+# 已归档后端的可选依赖（2026-10-31 拆分）。
+#
+# 只有在以下场景才需要安装（均为历史参考，**不能直接跑起来**）：
+# - import/阅读 util/legacy/backends.py 里的 MySQL / MongoDB 旧后端实现
+#   （主流程已移除，且这些函数依赖已从 Weibo 删除的 wb.mysql_* 方法）；
+# - import/阅读 scripts/legacy/service.py（已归档的 Flask API 示例，
+#   启动即 ModuleNotFoundError，见 docs/API.md 头部说明）。
+#
+# 安装：pip install -r requirements-legacy.txt
+# 主流程不依赖本文件，不装也能正常抓取/存档/出报告。
+
+pymongo==4.6.3
+PyMySQL==1.1.1
+Flask==3.1.3

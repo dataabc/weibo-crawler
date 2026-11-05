@@ -5,7 +5,7 @@ import schedule
 
 import const
 import weibo
-from util.notify import push_deer
+from util.misc.notify import push_deer
 
 
 def main(schedule_interval):
@@ -27,12 +27,13 @@ def main(schedule_interval):
             schedule.run_pending()
             sleep(1)
         except KeyboardInterrupt:
-            schedule.cancel_job(weibo.main)
             break
         except Exception as error:
+            # 先记日志再判断通知：旧实现把 logger.exception 缩进在 if NOTIFY 内，
+            # 默认 NOTIFY=False 时调度循环异常完全没有日志（2026-10-31 审计 C23）。
+            weibo.logger.exception(error)
             if const.NOTIFY["NOTIFY"]:
                 push_deer(f"weibo-crawler运行出错, 错误为{error}")
-                weibo.logger.exception(error)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

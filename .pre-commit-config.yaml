@@ -1,0 +1,19 @@
+# 本地提交前钩子（2026-10-29 接入，2026-10-31 扩至 pyflakes 全规则）。
+#
+# 启用方式（开发者本机一次性）：
+#   python -m pip install pre-commit ruff
+#   pre-commit install
+#
+# 为什么跑这条：2026-10-27 的重构事故是「漏 import / 方法漏回挂 / 重复定义」，
+# 单测全绿但真实链路一跑就炸。pyflakes 全规则（F）零误报，适合做提交门禁；
+# 导入排序（I）、行长（E）等风格规则暂不开启。
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check（pyflakes 全规则 F：未定义名/重复定义/未用 import/未用变量）
+        entry: ruff check
+        language: system
+        types: [python]
+        pass_filenames: false
+        args: ["."]

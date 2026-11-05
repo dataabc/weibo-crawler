@@ -1,0 +1,5 @@
+# 微博 Cookie 文件模板（配置相关文件统一放 config/ 目录）
+# 在 config/config.json 中把 "cookie" 设为 "config/cookie.txt" 即可从本文件读取；
+# 也可直接填在 config.json 的 cookie 字段，或使用环境变量 WEIBO_COOKIE（优先级最高）。
+# 内容示例：SCF=...; SUB=...; SUBP=...
+your cookie

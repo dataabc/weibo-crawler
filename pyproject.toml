@@ -1,0 +1,55 @@
+# 项目工具配置（2026-10-29 接入静态检查，2026-10-31 扩展）。
+#
+# 说明：本项目是脚本工程、不是可安装包，因此**不引入** `[project]` / 打包元数据
+# （避免误执行 `pip install .` 时把 weibo_data/ 等运行数据打进包）。
+# 依赖分三个文件管理：requirements.txt（核心）/ -legacy / -dev；
+# Python 版本要求（>= 3.10）见 README 与 docs/部署清单.md。
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    ".git",
+    "__pycache__",
+    "Output",
+    "weibo_data",
+    ".venv",
+    "venv",
+    ".deploy_backup",
+]
+
+[tool.ruff.lint]
+# 先只启用「确定性错误」规则集：一旦触发一定是真 bug。
+# 2026-10-27 重构事故（12 文件 25+ 处漏 import、7 个方法漏回挂、判重定义）
+# 本可由 F821 / F811 在提交时拦住，而 438 项单测全绿。
+# 2026-10-31 起扩展为 pyflakes 全规则（F）：未用 import、未用变量、重复定义等
+# 全部纳入门禁，当前代码 0 告警；风格规则（I 导入排序、E 行长）暂不开启。
+select = ["F"]
+
+[tool.ruff.lint.per-file-ignores]
+# 占位：后续给 tests/ 放开 E402 等风格规则时在这里配置
+"tests/**" = []
+
+[tool.coverage.run]
+# 覆盖率统计范围：只算生产代码，排除测试、Output、归档脚本与入口适配层。
+# 注意：必须用 include（路径模式）而不是 source（模块名解析）——
+# source 里写 "weibo.py" 会被 coverage 当模块名 weibo.py 交给 importlib.find_spec，
+# 触发延迟导入/父包导入；测试中途 pop json5 后该导入失败，Python 会
+# `del sys.modules["weibo"]`，导致后续重新导入产生新模块对象、mock 失效
+# （2026-10-31 实测：comment 目录在 coverage 下 9 个失败 + 慢 8 秒）。
+include = ["weibo.py", "const.py", "__main__.py", "util/*", "scripts/*"]
+omit = [
+    "tests/*",
+    "Output/*",
+    "scripts/legacy/*",
+    "scripts/manual/*",
+]
+
+[tool.coverage.report]
+# 先 report-only，不设失败阈值（2026-10-31 决策）。
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

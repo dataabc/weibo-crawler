@@ -5,20 +5,22 @@
 用途：枚举平台时间线，与本地存档做双向检查，输出两类名单：
 1) 本轮未抓到的已存档微博（本地有、平台未返回；可能已删除/不可见/漏枚举）；
 2) 未保存的微博（平台有、本地没有）。
-只读：不写存档、不下载媒体、不改配置、不推进用户列表第三列；需要补齐请自行跑全量抓取。
+只读：不写 markdown 存档、不下载媒体、不改配置、不推进用户列表第三列；
+也不会写 users.csv/数据库、不会创建用户存档目录（Weibo 以 readonly_mode 运行）。
+需要补齐请自行跑全量抓取。
+检查范围默认从「本地存档最早日期」起（只核对已存档，不把配置起点到
+存档起点之间的历史当成漏存）；需要检查更早历史时用 --since 显式指定。
 与「本轮存档核对」共用 util/archive_check_core.py 的比对与报告逻辑。
 
 示例：
     python scripts/weibo_archive_check_full.py --users 1234567890
-    python scripts/weibo_archive_check_full.py --users 1234567890 1234567891 --since 2023-01-01
-"""
+    python scripts/weibo_archive_check_full.py --users 1234567890 1234567891 --since 2023-01-01"""
 
 from __future__ import annotations
 
 import argparse
 import logging
 import os
-import re
 import sys
 from datetime import datetime
 
@@ -28,12 +30,14 @@ if PROJECT_DIR not in sys.path:
     sys.path.insert(0, PROJECT_DIR)
 
 import weibo
-from util import archive_check_core, archive_index
-from util.archive_check_core import DTFORMAT, EnumerationStatus
+from util.core import atomic_io  # noqa: E402
+from util.core import archive_index
+from util.report import archive_check_core
+from util.report.archive_check_core import DTFORMAT, EnumerationStatus
+from util.report.reporting import safe_name as _safe_name
 
 logger = logging.getLogger("weibo")
 DEFAULT_MAX_PAGES = 300
-_ILLEGAL_FILENAME_RE = re.compile(r'[\\/:*?"<>|]')
 
 
 def _parse_since(text: str | None) -> datetime | None:
@@ -46,10 +50,6 @@ def _parse_since(text: str | None) -> datetime | None:
         except ValueError:
             continue
     raise SystemExit(f"--since 格式错误（应为 YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS）：{text}")
-
-
-def _safe_name(name: str | None) -> str:
-    return _ILLEGAL_FILENAME_RE.sub("_", name or "unknown")
 
 
 def _iter_mblog_cards(cards):
@@ -74,7 +74,7 @@ def _created_at_of(wb: "weibo.Weibo", mblog: dict) -> datetime | None:
     try:
         standard, _ = wb.standardize_date(str(raw))
         return datetime.strptime(standard, DTFORMAT)
-    except Exception:
+    except Exception:  # noqa: BLE001 兜底：失败不阻断
         return None
 
 
@@ -87,7 +87,8 @@ def enumerate_platform(
     """轻量枚举平台时间线。
 
     返回：
-    - platform: {id: 发布时间}（已按 only_crawl_original 过滤；包含置顶旧帖）；
+    - platform: {id: 发布时间}（已按 only_crawl_original 过滤；不含早于检查起点的
+      置顶旧帖——置顶帖只用于「避免因为时间边界提前判停」，不属于核对范围）；
     - enumeration: 本轮平台枚举是否顺利完成。
     """
     enumeration = EnumerationStatus(page_count=page_count)
@@ -134,7 +135,12 @@ def enumerate_platform(
                     hit_since = True
                 continue
 
-            if dt is not None and dt < audit_since and not is_pinned:
+            if dt is not None and dt < audit_since:
+                if is_pinned:
+                    # 置顶帖是时间线顶部的展示位，发布日期可能远早于检查起点：
+                    # 它不属于核对范围（不写入 platform），也不能用它判定已到达
+                    # 时间下界（时间线其余帖子仍按时间倒序，继续枚举）。
+                    continue
                 # 早于检查起点：不进入本次检查集合，并标记已到达下界
                 hit_since = True
                 continue
@@ -174,7 +180,17 @@ def audit_one_user(
     user_config: dict,
     args: argparse.Namespace,
 ) -> int:
-    """检查一个用户；返回 0=枚举顺利完成，2=枚举未顺利完成，1=失败。"""
+    """检查一个用户；返回 0=枚举顺利完成（含跳过），2=枚举未顺利完成，1=失败。"""
+    query_list = user_config.get("query_list") or []
+    if query_list:
+        # 与主流程口径一致：关键词用户的存档不完整，列「未保存」会大量误报
+        logger.warning(
+            "用户 %s 配置了 query 关键词（%s），全量核对不适用于关键词用户，跳过",
+            user_config.get("user_id"),
+            ",".join(str(item) for item in query_list),
+        )
+        return 0
+    wb.readonly_mode = True
     wb.initialize_info(user_config)
     wb.query = ""
     if wb.get_user_info() != 0:
@@ -200,20 +216,31 @@ def audit_one_user(
         len(invisible_ids),
     )
 
-    # 检查范围：--since 优先；否则取「全局 since_date 与存档最早日期」中较早者
+    # 检查范围：--since 优先；否则默认从本地存档最早日期起。
+    # 全量核对定位是核对「已存档」，需要检查更早历史时用 --since。
     since = _parse_since(args.since)
-    if since is None:
-        candidates = []
-        try:
-            candidates.append(datetime.strptime(wb.since_date, DTFORMAT))
-        except (ValueError, TypeError):
-            pass
+    if since is not None:
+        range_source = "command_line_since"
+    else:
         dated = [dt for dt, _path in local_entries.values() if dt is not None]
         if dated:
-            candidates.append(min(dated))
-        since = min(candidates) if candidates else datetime(2011, 1, 1)
+            since = min(dated)
+            range_source = "local_archive_earliest"
+        else:
+            # 本地没有任何带日期的存档：退回用户自己的 since_date（书签/全局）
+            try:
+                since = datetime.strptime(wb.since_date, DTFORMAT)
+                range_source = "user_since_date"
+            except (ValueError, TypeError):
+                since = datetime(2011, 1, 1)
+                range_source = "fallback_2011"
     until = datetime.now()
-    logger.info("检查范围: %s ~ %s", since.strftime(DTFORMAT), until.strftime(DTFORMAT))
+    logger.info(
+        "检查范围: %s ~ %s（起点来源: %s）",
+        since.strftime(DTFORMAT),
+        until.strftime(DTFORMAT),
+        range_source,
+    )
 
     page_count = wb.get_page_count() or 0
     if page_count <= 0:
@@ -248,6 +275,7 @@ def audit_one_user(
         ),
         f"平台枚举: {len(platform)} 条（已按 only_crawl_original 过滤）",
         f"本地存档: {len(local_entries)} 条（无日期 {unknown_dates} 条未参与）",
+        f"检查起点来源: {range_source}（默认=本地存档最早日期；更早历史请用 --since）",
         "说明: 本地文件路径相对于 output_directory。",
     ]
     if not enumeration.ok:
@@ -255,6 +283,7 @@ def audit_one_user(
     summary_lines = [
         f"range_start: {since.strftime(DTFORMAT)}",
         f"range_end: {until.strftime(DTFORMAT)}",
+        f"range_source: {range_source}",
         f"enumeration_ok: {'true' if enumeration.ok else 'false'}",
         f"enumeration_reason: {enumeration.reason}",
         f"pages_done: {enumeration.pages_done}",
@@ -279,8 +308,7 @@ def audit_one_user(
         summary_lines=summary_lines,
         base_dir=base_dir,
     )
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(report)
+    atomic_io.atomic_write_text(report_path, report)
     print(f"[{screen_name}] 核对报告: {report_path}")
     print(
         f"[{screen_name}] 未抓到 {len(diff.not_returned)} 条，"
@@ -306,7 +334,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--since", default=None,
-        help="检查起点（YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS）；默认取存档最早日期与全局 since_date 的较早者",
+        help="检查起点（YYYY-MM-DD 或 YYYY-MM-DDTHH:MM:SS）；默认取本地存档最早日期（更早历史才需要显式指定）",
     )
     parser.add_argument(
         "--max-pages", type=int, default=DEFAULT_MAX_PAGES,

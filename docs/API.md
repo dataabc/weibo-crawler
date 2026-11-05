@@ -1,5 +1,11 @@
 # Weibo API 说明文档
 
+> 本服务是 Flask REST API **示例**：**可启动，未验证**（详见 `docs/未验证功能.md` A4），主流程不依赖它。
+> 代码在 `scripts/legacy/service.py`。运行前安装依赖：
+> `pip install -r requirements.txt -r requirements-legacy.txt`，然后
+> `python scripts/legacy/service.py`（默认 `http://127.0.0.1:5000`）。
+> 抓取接口会真实启动抓取；查询接口依赖 SQLite（`write_mode` 含 `sqlite` 才有数据）。
+
 本文档详细介绍了基于 Flask 框架构建的 Weibo API 的各个端点及其使用方法。API 主要用于刷新微博数据、查询任务状态以及获取微博信息。
 
 ## 目录
