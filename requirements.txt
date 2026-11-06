@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # 运行时核心依赖（2026-10-31 拆分）。
 #
 # 安装：pip install -r requirements.txt

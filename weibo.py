@@ -742,18 +742,23 @@ class Weibo(object):
         """实现见 util/storage/sqlite.py。"""
         return storage_sqlite.insert_file_sqlite(self, file_path, weibo_id, url, binary)
 
-    def _get_timestamp_prefix(self, created_at):
+    def _get_timestamp_prefix(self, w):
         """根据微博发布时间生成人类可读的文件名前缀
-        格式：YYYY-MM-DD_HH-MM-SS，与 _download_weibo_images 保持一致
+        格式由 timestamp_prefix_format 配置，默认 YYYY-MM-DD_HH-MM-SS。
+        timestamp_prefix_include_id 开启时，在时间后追加 w["id"]。
         """
+        created_at = w.get("created_at", "")
         try:
             time_obj = datetime.strptime(created_at, DTFORMAT)
-            date_str = time_obj.strftime("%Y-%m-%d")
-            time_str = time_obj.strftime("%H:%M:%S")
-            return f"{date_str}_{time_str.replace(':', '-')}"
+            prefix = time_obj.strftime(
+                getattr(self, "timestamp_prefix_format", "%Y-%m-%d_%H-%M-%S")
+            )
         except (ValueError, KeyError):
             # 回退：使用旧的截断格式（不再引用未定义的 w，避免 NameError）
-            return created_at[:11].replace("-", "") or "unknown_time"
+            prefix = created_at[:11].replace("-", "") or "unknown_time"
+        if getattr(self, "timestamp_prefix_include_id", 0) and w.get("id"):
+            prefix = f"{prefix}_{w['id']}"
+        return prefix
 
     def handle_download(self, file_type, file_dir, urls, w):
         """实现见 util/media/media_jobs.py。"""
@@ -1789,9 +1794,7 @@ class Weibo(object):
             return
 
         try:
-            time_obj = datetime.strptime(created_at, DTFORMAT)
-            date_str = time_obj.strftime("%Y-%m-%d")
-            time_str = time_obj.strftime("%H:%M:%S")
+            datetime.strptime(created_at, DTFORMAT)
         except ValueError:
             return
 
@@ -1801,9 +1804,9 @@ class Weibo(object):
             if not pic_url:
                 continue
 
-            # 生成图片文件名：YYYY-MM-DD_HH-MM-SS.jpg
+            # 按配置生成图片时间前缀
             # 如果同一条微博有多张图片，在文件名后加 _1, _2 等后缀
-            base_filename = f"{date_str}_{time_str.replace(':', '-')}"
+            base_filename = self._get_timestamp_prefix(weibo)
             if len(pics) > 1:
                 img_filename = f"{base_filename}_{i+1}.jpg"
             else:
@@ -1825,9 +1828,7 @@ class Weibo(object):
             return []
 
         try:
-            time_obj = datetime.strptime(created_at, DTFORMAT)
-            date_str = time_obj.strftime("%Y-%m-%d")
-            time_str = time_obj.strftime("%H:%M:%S")
+            datetime.strptime(created_at, DTFORMAT)
         except ValueError:
             return []
 
@@ -1839,7 +1840,7 @@ class Weibo(object):
             if actual_name:
                 file_names.append(actual_name)
                 continue
-            base_filename = f"{date_str}_{time_str.replace(':', '-')}"
+            base_filename = self._get_timestamp_prefix({**weibo, "created_at": created_at})
             if len(pics) > 1:
                 file_names.append(f"{base_filename}_{i+1}.jpg")
             else:

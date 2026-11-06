@@ -126,6 +126,10 @@ def apply(wb, config) -> None:
     md_file_dir = config.get("markdown_file_dir", {})
     wb.markdown_file_dir = {**default_md_dir, **md_file_dir} if isinstance(md_file_dir, dict) else default_md_dir
 
+    wb.timestamp_prefix_format = config.get(
+        "timestamp_prefix_format", "%Y-%m-%d_%H-%M-%S"
+    )
+    wb.timestamp_prefix_include_id = config.get("timestamp_prefix_include_id", 0)
     # 下载后本地存储的文件夹名称
     default_dl_folder = {
         "original_image_folder": "原创微博图片",

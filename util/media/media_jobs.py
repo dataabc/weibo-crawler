@@ -247,7 +247,7 @@ def _media_file_names(wb, file_type, urls, w) -> list[tuple[str, str]]:
     落盘名与 Markdown 链接名由同一函数产生，避免多视频/混合扩展名时
     文件名不一致导致断链。
     """
-    file_prefix = wb._get_timestamp_prefix(w["created_at"])
+    file_prefix = wb._get_timestamp_prefix(w)
     pairs: list[tuple[str, str]] = []
     if file_type == "img":
         url_list = _split_media_urls(urls, ",")

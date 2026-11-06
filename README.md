@@ -404,6 +404,9 @@ markdown_show_location_link 控制是否把「位置」类网页链接写进 md�
 
 **设置markdown_file_dir / download_folder_name**
 
+媒体文件名的时间前缀由 `timestamp_prefix_format` 配置，默认 `"%Y-%m-%d_%H-%M-%S"`（例如 `2024-01-02_03-04-05`）；设为 `"%Y%m%d_%H%M%S"` 则生成 `20240102_030405`。支持这两种格式，图片、视频、Live Photo 及对应 Markdown 链接使用同一规则。此配置只影响后续生成的文件名，不会重命名已有文件。
+`timestamp_prefix_include_id` 控制是否在媒体时间前缀后追加微博 ID，默认 `0`（不追加）。
+
 `markdown_file_dir` 是 md 内媒体链接使用的相对目录名（`original_image_dir`、`retweet_image_dir`、`original_video_dir`、`retweet_video_dir`、`original_live_photo_dir`、`retweet_live_photo_dir`、`comment_image_dir`）；`download_folder_name` 是下载到本地的文件夹名（`original_image_folder`、`retweet_image_folder`、……）。**write_mode 含 markdown 时，媒体落盘目录统一使用 `markdown_file_dir` 的名字**，保证 md 链接与本地文件一致；非 markdown 模式使用 `download_folder_name`，未显式配置 `comment_image_dir` 时评论图片目录回退到 `comment_image_folder`。
 
 **设置start_page**
