@@ -136,6 +136,10 @@ class ValidateBranchTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             config_loader.validate(self.wb, config)
 
+    def test_invalid_timestamp_prefix_format_rejected(self):
+        self.config["timestamp_prefix_format"] = "%Y/%m/%d"
+        self._assert_exit(self.config)
+
     def test_accepts_template(self):
         config_loader.validate(self.wb, self.config)  # 不抛异常即通过
 

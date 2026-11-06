@@ -54,6 +54,8 @@
         "retweet_live_photo_dir": "转发微博Live Photo视频",        // 转发 Live Photo 链接路径（md 内相对路径）
         "comment_image_dir": "评论图片"                            // 评论图片链接路径（md 内相对路径）
     },
+    "timestamp_prefix_format": "%Y-%m-%d_%H-%M-%S",                 // 媒体文件时间前缀；改为 %Y%m%d_%H%M%S 可去掉时间中的横线
+    "timestamp_prefix_include_id": 0,                              // 0 = 不追加微博 ID；1 = 时间前缀后追加 _微博ID，再接多媒体序号
     "download_folder_name": {                                      // 媒体下载目录（md 模式下视频与 Live Photo 也生效）
         "original_image_folder": "原创微博图片",                   // 原创图片下载目录名
         "retweet_image_folder": "转发微博图片",                    // 转发图片下载目录名

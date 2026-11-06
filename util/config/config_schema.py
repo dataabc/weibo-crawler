@@ -24,6 +24,11 @@ class ConfigRule:
 
 # 关键配置键（覆盖爬取/写入/报告/评论/隔离区；不是全部 100 个键）
 RULES: dict[str, ConfigRule] = {
+    "timestamp_prefix_format": ConfigRule(
+        (str,), "%Y-%m-%d_%H-%M-%S",
+        choices=("%Y-%m-%d_%H-%M-%S", "%Y%m%d_%H%M%S"),
+    ),
+    "timestamp_prefix_include_id": ConfigRule((int, bool), 0, choices=(0, 1, False, True)),
     "since_date": ConfigRule((str, int), "1970-01-01"),
     "write_mode": ConfigRule((list,), []),
     "only_crawl_original": ConfigRule((int, bool), 0, choices=(0, 1, False, True)),

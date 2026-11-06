@@ -68,6 +68,33 @@ class ConfigLoaderApplyTest(unittest.TestCase):
     def tearDown(self):
         sys.modules["requests"].Session = self._saved_session
 
+    def test_timestamp_prefix_format_config_and_default(self):
+        for value, expected in (
+            (None, "2024-01-02_03-04-05"),
+            ("%Y-%m-%d_%H-%M-%S", "2024-01-02_03-04-05"),
+            ("%Y%m%d_%H%M%S", "20240102_030405"),
+        ):
+            with self.subTest(format=value):
+                self.config.pop("timestamp_prefix_format", None)
+                if value is not None:
+                    self.config["timestamp_prefix_format"] = value
+                config_loader.apply(self.wb, self.config)
+                self.assertEqual(
+                    self.wb._get_timestamp_prefix("2024-01-02T03:04:05"), expected
+                )
+
+    def test_timestamp_prefix_include_id_config_and_default(self):
+        w = {"created_at": "2026-11-04T21:14:40", "id": "5361640111343690"}
+        self.config["timestamp_prefix_format"] = "%Y%m%d_%H%M%S"
+        for enabled in (None, 0, 1):
+            with self.subTest(enabled=enabled):
+                self.config.pop("timestamp_prefix_include_id", None)
+                if enabled is not None:
+                    self.config["timestamp_prefix_include_id"] = enabled
+                config_loader.apply(self.wb, self.config)
+                expected = "20261104_211440" + ("_5361640111343690" if enabled else "")
+                self.assertEqual(self.wb._get_timestamp_prefix(w), expected)
+
     def test_apply_from_template_sets_core_attributes(self):
         config_loader.apply(self.wb, self.config)
 
